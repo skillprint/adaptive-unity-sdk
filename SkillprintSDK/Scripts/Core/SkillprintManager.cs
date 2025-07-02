@@ -1,8 +1,9 @@
-using UnityEngine;
+using System; // For Guid
 using System.Collections;
 using System.Collections.Generic;
-using System; // For Guid
-using System.Linq; // For LINQ operations on parameters
+using System.Linq;
+using Skillprint.SDK.API; // For LINQ operations on parameters
+using UnityEngine;
 
 namespace Skillprint.SDK
 {
@@ -23,7 +24,8 @@ namespace Skillprint.SDK
         private Coroutine _screenshotPostCoroutine;
         private Coroutine _pollResultsCoroutine;
 
-        private Dictionary<string, ParameterDefinition> _registeredParameters = new Dictionary<string, ParameterDefinition>();
+        private Dictionary<string, ParameterDefinition> _registeredParameters =
+            new Dictionary<string, ParameterDefinition>();
 
         public string GetCurrentSessionId()
         {
@@ -40,7 +42,9 @@ namespace Skillprint.SDK
             }
             else
             {
-                Debug.LogWarning("[SkillprintSDK] Another instance of SkillprintManager already exists. Destroying this one.");
+                Debug.LogWarning(
+                    "[SkillprintSDK] Another instance of SkillprintManager already exists. Destroying this one."
+                );
                 Destroy(gameObject);
             }
         }
@@ -49,7 +53,9 @@ namespace Skillprint.SDK
         {
             if (config == null)
             {
-                Debug.LogError("[SkillprintSDK] SkillprintConfig not assigned to SkillprintManager. SDK will not function.");
+                Debug.LogError(
+                    "[SkillprintSDK] SkillprintConfig not assigned to SkillprintManager. SDK will not function."
+                );
                 enabled = false; // Disable this component
                 return;
             }
@@ -57,18 +63,28 @@ namespace Skillprint.SDK
             // Use active properties from config
             if (string.IsNullOrWhiteSpace(config.ActivePartnerApiKey))
             {
-                Log($"Partner API Key for {config.targetEnvironment} environment is not set in SkillprintConfig. SDK will not function.", LogLevel.Error);
+                Log(
+                    $"Partner API Key for {config.targetEnvironment} environment is not set in SkillprintConfig. SDK will not function.",
+                    LogLevel.Error
+                );
                 enabled = false;
                 return;
             }
             if (string.IsNullOrWhiteSpace(config.ActiveApiBaseUrl))
             {
-                Log($"API Base URL for {config.targetEnvironment} environment is not set in SkillprintConfig. SDK will not function.", LogLevel.Error);
+                Log(
+                    $"API Base URL for {config.targetEnvironment} environment is not set in SkillprintConfig. SDK will not function.",
+                    LogLevel.Error
+                );
                 enabled = false;
                 return;
             }
 
-            _apiClient = new SkillprintAPIClient(config.ActiveApiBaseUrl, config.ActivePartnerApiKey, Log);
+            _apiClient = new SkillprintAPIClient(
+                config.ActiveApiBaseUrl,
+                config.ActivePartnerApiKey,
+                Log
+            );
             _screenshotUtility = new ScreenshotUtility(Log);
 
             // Prepare registered parameters from config
@@ -81,10 +97,15 @@ namespace Skillprint.SDK
                 }
                 else
                 {
-                    Log($"Duplicate parameter name found in config: {paramDef.parameterName}. Using first occurrence.", LogLevel.Warning);
+                    Log(
+                        $"Duplicate parameter name found in config: {paramDef.parameterName}. Using first occurrence.",
+                        LogLevel.Warning
+                    );
                 }
             }
-            Log($"Skillprint SDK Initialized for {config.targetEnvironment} environment (URL: {config.ActiveApiBaseUrl}).");
+            Log(
+                $"Skillprint SDK Initialized for {config.targetEnvironment} environment (URL: {config.ActiveApiBaseUrl})."
+            );
         }
 
         /// <summary>
@@ -100,13 +121,19 @@ namespace Skillprint.SDK
             {
                 // Type check
                 bool typeMatch = false;
-                if (typeof(T) == typeof(float) && paramDef.type == ParameterType.Float) typeMatch = true;
-                else if (typeof(T) == typeof(int) && paramDef.type == ParameterType.Integer) typeMatch = true;
-                else if (typeof(T) == typeof(bool) && paramDef.type == ParameterType.Boolean) typeMatch = true;
+                if (typeof(T) == typeof(float) && paramDef.type == ParameterType.Float)
+                    typeMatch = true;
+                else if (typeof(T) == typeof(int) && paramDef.type == ParameterType.Integer)
+                    typeMatch = true;
+                else if (typeof(T) == typeof(bool) && paramDef.type == ParameterType.Boolean)
+                    typeMatch = true;
 
                 if (!typeMatch)
                 {
-                    Log($"Type mismatch for parameter '{parameterName}'. Expected {paramDef.type}, but got {typeof(T)}. Modifier not registered.", LogLevel.Error);
+                    Log(
+                        $"Type mismatch for parameter '{parameterName}'. Expected {paramDef.type}, but got {typeof(T)}. Modifier not registered.",
+                        LogLevel.Error
+                    );
                     return;
                 }
 
@@ -119,67 +146,100 @@ namespace Skillprint.SDK
                     else
                     {
                         // This case should ideally be caught by ConvertValue, but good to have a fallback
-                        Log($"Type conversion failed for parameter '{parameterName}' during update. Expected {typeof(T)}, got {value?.GetType()}.", LogLevel.Error);
+                        Log(
+                            $"Type conversion failed for parameter '{parameterName}' during update. Expected {typeof(T)}, got {value?.GetType()}.",
+                            LogLevel.Error
+                        );
                     }
                 };
                 Log($"Parameter '{parameterName}' modifier registered successfully.");
             }
             else
             {
-                Log($"Attempted to register modifier for undefined parameter: '{parameterName}'. Ensure it's in SkillprintConfig.", LogLevel.Warning);
+                Log(
+                    $"Attempted to register modifier for undefined parameter: '{parameterName}'. Ensure it's in SkillprintConfig.",
+                    LogLevel.Warning
+                );
             }
         }
-
 
         /// <summary>
         /// Starts a new Skillprint game session.
         /// </summary>
         /// <param name="customPlayerId">Optional: A custom player identifier if your game uses one.</param>
-        public void StartGameSession(string customPlayerId = null)
+        public void StartGameSession(string targetMood, string customPlayerId = null)
         {
             if (_isSessionActive)
             {
                 Log("Session already active. Call StopGameSession first.", LogLevel.Warning);
                 return;
             }
-            if (config == null || string.IsNullOrWhiteSpace(config.ActivePartnerApiKey) || string.IsNullOrWhiteSpace(config.ActiveApiBaseUrl))
+            if (
+                config == null
+                || string.IsNullOrWhiteSpace(config.ActivePartnerApiKey)
+                || string.IsNullOrWhiteSpace(config.ActiveApiBaseUrl)
+            )
             {
-                Log("SDK not configured properly (check environment settings). Cannot start session.", LogLevel.Error);
+                Log(
+                    "SDK not configured properly (check environment settings). Cannot start session.",
+                    LogLevel.Error
+                );
                 return;
             }
 
             _currentSessionId = Guid.NewGuid().ToString();
             _isSessionActive = true;
-            Log($"Starting game session for {config.targetEnvironment} environment.", LogLevel.Info);
+            Log(
+                $"Starting game session for {config.targetEnvironment} environment.",
+                LogLevel.Info
+            );
 
             // Construct parameter info to send to Skillprint
-            var parameterInfos = config.gameParameters.Select(p => new API.ParameterInfo
-            {
-                name = p.parameterName,
-                type = p.type.ToString(),
-                description = p.description,
-                // Include range if applicable
-                minValue = (p.type == ParameterType.Float || p.type == ParameterType.Integer) ? p.minValue.ToString() : null,
-                maxValue = (p.type == ParameterType.Float || p.type == ParameterType.Integer) ? p.maxValue.ToString() : null,
-            }).ToList();
+            var parameterInfos = config
+                .gameParameters.Select(p => new API.ParameterInfo
+                {
+                    name = p.parameterName,
+                    type = p.type.ToString(),
+                    description = p.description,
+                    // Include range if applicable
+                    minValue =
+                        (p.type == ParameterType.Float || p.type == ParameterType.Integer)
+                            ? p.minValue.ToString()
+                            : null,
+                    maxValue =
+                        (p.type == ParameterType.Float || p.type == ParameterType.Integer)
+                            ? p.maxValue.ToString()
+                            : null,
+                })
+                .ToList();
 
-            StartCoroutine(_apiClient.StartSession(_currentSessionId, customPlayerId, parameterInfos, (success, response) =>
-            {
-                if (success)
-                {
-                    Log($"Skillprint session started: {_currentSessionId}. Response: {response}");
-                    // Start SDK processes
-                    _screenshotCaptureCoroutine = StartCoroutine(ScreenshotCaptureLoop());
-                    _screenshotPostCoroutine = StartCoroutine(ScreenshotPostLoop());
-                    _pollResultsCoroutine = StartCoroutine(PollResultsLoop());
-                }
-                else
-                {
-                    Log($"Failed to start Skillprint session: {response}", LogLevel.Error);
-                    _isSessionActive = false;
-                    _currentSessionId = null;
-                }
-            }));
+            StartCoroutine(
+                _apiClient.StartSession(
+                    _currentSessionId,
+                    targetMood,
+                    customPlayerId,
+                    parameterInfos,
+                    (success, response) =>
+                    {
+                        if (success)
+                        {
+                            Log(
+                                $"Skillprint session started: {_currentSessionId}. Response: {response}"
+                            );
+                            // Start SDK processes
+                            _screenshotCaptureCoroutine = StartCoroutine(ScreenshotCaptureLoop());
+                            _screenshotPostCoroutine = StartCoroutine(ScreenshotPostLoop());
+                            _pollResultsCoroutine = StartCoroutine(PollResultsLoop());
+                        }
+                        else
+                        {
+                            Log($"Failed to start Skillprint session: {response}", LogLevel.Error);
+                            _isSessionActive = false;
+                            _currentSessionId = null;
+                        }
+                    }
+                )
+            );
         }
 
         /// <summary>
@@ -196,9 +256,12 @@ namespace Skillprint.SDK
             Log($"Stopping Skillprint session: {_currentSessionId}");
             _isSessionActive = false;
 
-            if (_screenshotCaptureCoroutine != null) StopCoroutine(_screenshotCaptureCoroutine);
-            if (_screenshotPostCoroutine != null) StopCoroutine(_screenshotPostCoroutine);
-            if (_pollResultsCoroutine != null) StopCoroutine(_pollResultsCoroutine);
+            if (_screenshotCaptureCoroutine != null)
+                StopCoroutine(_screenshotCaptureCoroutine);
+            if (_screenshotPostCoroutine != null)
+                StopCoroutine(_screenshotPostCoroutine);
+            if (_pollResultsCoroutine != null)
+                StopCoroutine(_pollResultsCoroutine);
 
             _screenshotQueue.ForEach(Destroy); // Clean up any remaining textures
             _screenshotQueue.Clear();
@@ -215,25 +278,31 @@ namespace Skillprint.SDK
             while (_isSessionActive)
             {
                 yield return new WaitForSeconds(config.screenshotIntervalSeconds);
-                if (!_isSessionActive) break; // Check again after wait
+                if (!_isSessionActive)
+                    break; // Check again after wait
 
-                yield return _screenshotUtility.CaptureScreenshot((texture) =>
-                {
-                    if (texture != null)
+                yield return _screenshotUtility.CaptureScreenshot(
+                    (texture) =>
                     {
-                        // Keep queue size manageable if posting is slow, or implement a more robust queue
-                        if (_screenshotQueue.Count < 50) // Max 50 pending screenshots
+                        if (texture != null)
                         {
-                             _screenshotQueue.Add(texture);
-                             Log($"Screenshot captured. Queue size: {_screenshotQueue.Count}");
-                        }
-                        else
-                        {
-                            Log("Screenshot queue full. Discarding new screenshot.", LogLevel.Warning);
-                            Destroy(texture);
+                            // Keep queue size manageable if posting is slow, or implement a more robust queue
+                            if (_screenshotQueue.Count < 50) // Max 50 pending screenshots
+                            {
+                                _screenshotQueue.Add(texture);
+                                Log($"Screenshot captured. Queue size: {_screenshotQueue.Count}");
+                            }
+                            else
+                            {
+                                Log(
+                                    "Screenshot queue full. Discarding new screenshot.",
+                                    LogLevel.Warning
+                                );
+                                Destroy(texture);
+                            }
                         }
                     }
-                });
+                );
             }
         }
 
@@ -242,10 +311,13 @@ namespace Skillprint.SDK
             while (_isSessionActive)
             {
                 yield return new WaitForSeconds(config.screenshotPostIntervalSeconds);
-                if (!_isSessionActive || _screenshotQueue.Count == 0) continue;
+                if (!_isSessionActive || _screenshotQueue.Count == 0)
+                    continue;
 
                 List<Texture2D> batchToPost = new List<Texture2D>();
-                int batchSize = Mathf.CeilToInt(config.screenshotPostIntervalSeconds / config.screenshotIntervalSeconds);
+                int batchSize = Mathf.CeilToInt(
+                    config.screenshotPostIntervalSeconds / config.screenshotIntervalSeconds
+                );
                 batchSize = Mathf.Max(1, batchSize); // Ensure at least 1
 
                 // Take up to batchSize screenshots from the queue
@@ -260,20 +332,29 @@ namespace Skillprint.SDK
                 if (batchToPost.Count > 0)
                 {
                     Log($"Posting {batchToPost.Count} screenshots...");
-                    StartCoroutine(_apiClient.PostScreenshots(_currentSessionId, batchToPost, (success, response) =>
-                    {
-                        if (success)
-                        {
-                            Log($"Successfully posted {batchToPost.Count} screenshots. Response: {response}");
-                        }
-                        else
-                        {
-                            Log($"Failed to post screenshots: {response}", LogLevel.Error);
-                            // Potentially re-add to queue or handle error, for now, they are "lost"
-                        }
-                        // Clean up textures that were attempted to be posted
-                        batchToPost.ForEach(Destroy);
-                    }));
+                    StartCoroutine(
+                        _apiClient.PostScreenshots(
+                            _currentSessionId,
+                            batchToPost,
+                            false, // TODO send true when session is finalized, otherwise false
+                            (success, response) =>
+                            {
+                                if (success)
+                                {
+                                    Log(
+                                        $"Successfully posted {batchToPost.Count} screenshots. Response: {response}"
+                                    );
+                                }
+                                else
+                                {
+                                    Log($"Failed to post screenshots: {response}", LogLevel.Error);
+                                    // Potentially re-add to queue or handle error, for now, they are "lost"
+                                }
+                                // Clean up textures that were attempted to be posted
+                                batchToPost.ForEach(Destroy);
+                            }
+                        )
+                    );
                 }
             }
         }
@@ -283,20 +364,29 @@ namespace Skillprint.SDK
             while (_isSessionActive)
             {
                 yield return new WaitForSeconds(config.pollResultsIntervalSeconds);
-                if (!_isSessionActive) break;
+                if (!_isSessionActive)
+                    break;
 
-                StartCoroutine(_apiClient.PollParameterResults(_currentSessionId, (success, apiResults) =>
-                {
-                    if (success && apiResults != null && apiResults.Count > 0)
-                    {
-                        Log($"Received {apiResults.Count} parameter updates from API.");
-                        ApplyParameterUpdates(apiResults);
-                    }
-                    else if (!success)
-                    {
-                        Log($"Failed to poll results or no new results. Message: {apiResults?.ToString() ?? "No message"}", LogLevel.Warning);
-                    }
-                }));
+                StartCoroutine(
+                    _apiClient.PollParameterResults(
+                        _currentSessionId,
+                        (success, apiResults) =>
+                        {
+                            if (success && apiResults != null && apiResults.Count > 0)
+                            {
+                                Log($"Received {apiResults.Count} parameter updates from API.");
+                                ApplyParameterUpdates(apiResults);
+                            }
+                            else if (!success)
+                            {
+                                Log(
+                                    $"Failed to poll results or no new results. Message: {apiResults?.ToString() ?? "No message"}",
+                                    LogLevel.Warning
+                                );
+                            }
+                        }
+                    )
+                );
             }
         }
 
@@ -304,11 +394,23 @@ namespace Skillprint.SDK
         {
             foreach (var update in updates)
             {
-                if (_registeredParameters.TryGetValue(update.parameterName, out ParameterDefinition paramDef))
+                Log(
+                    $"[DEBUG] Received update - Name: {update.parameterName}, Value: '{update.newValue}', Type: {(update.newValue == null ? "null" : update.newValue.GetType().ToString())}",
+                    LogLevel.Info
+                );
+                if (
+                    _registeredParameters.TryGetValue(
+                        update.parameterName,
+                        out ParameterDefinition paramDef
+                    )
+                )
                 {
                     if (paramDef.UpdateAction == null)
                     {
-                        Log($"Parameter '{update.parameterName}' received from API but has no registered modifier. Skipping.", LogLevel.Warning);
+                        Log(
+                            $"Parameter '{update.parameterName}' received from API but has no registered modifier. Skipping.",
+                            LogLevel.Warning
+                        );
                         continue;
                     }
 
@@ -318,31 +420,49 @@ namespace Skillprint.SDK
                     {
                         try
                         {
-                            Log($"Applying update: {paramDef.parameterName} = {convertedValue} (Type: {paramDef.type})");
+                            Log(
+                                $"Applying update: {paramDef.parameterName} = {convertedValue} (Type: {paramDef.type})"
+                            );
                             paramDef.UpdateAction(convertedValue);
                         }
                         catch (Exception e)
                         {
-                            Log($"Error applying update for {paramDef.parameterName}: {e.Message}", LogLevel.Error);
+                            Log(
+                                $"Error applying update for {paramDef.parameterName}: {e.Message}",
+                                LogLevel.Error
+                            );
                         }
                     }
                     else
                     {
-                        Log($"Invalid value or type for parameter {paramDef.parameterName}: '{update.newValue}'. Expected type: {paramDef.type}, Range: {paramDef.minValue}-{paramDef.maxValue}. Skipping.", LogLevel.Warning);
+                        Log(
+                            $"Invalid value or type for parameter {paramDef.parameterName}: '{update.newValue}'. Expected type: {paramDef.type}, Range: {paramDef.minValue}-{paramDef.maxValue}. Skipping.",
+                            LogLevel.Warning
+                        );
                     }
                 }
                 else
                 {
-                    Log($"Received update for unknown parameter: {update.parameterName}. Skipping.", LogLevel.Warning);
+                    Log(
+                        $"Received update for unknown parameter: {update.parameterName}. Skipping.",
+                        LogLevel.Warning
+                    );
                 }
             }
         }
 
         // Centralized logging
-        public enum LogLevel { Info, Warning, Error }
+        public enum LogLevel
+        {
+            Info,
+            Warning,
+            Error,
+        }
+
         public void Log(string message, LogLevel level = LogLevel.Info)
         {
-            if (!config.enableDebugLogging && level == LogLevel.Info) return;
+            if (!config.enableDebugLogging && level == LogLevel.Info)
+                return;
 
             switch (level)
             {
@@ -368,6 +488,66 @@ namespace Skillprint.SDK
             {
                 Instance = null;
             }
+        }
+
+        public SkillprintConfig GetConfig()
+        {
+            return config;
+        }
+
+        // WEBGL specific methods for when game is compiled to Web
+
+        // <summary>
+        /// Starts a Skillprint session with automatic URL parameter detection for WebGL builds
+        /// </summary>
+        /// <param name="fallbackMood">Mood to use if not found in URL parameters (default: "focus")</param>
+        /// <param name="fallbackPlayerId">Player ID to use if not found in URL parameters (optional)</param>
+        public void StartGameSessionFromUrl(
+            string fallbackMood = "relax",
+            string fallbackPlayerId = null
+        )
+        {
+            SkillprintSessionHelper.StartSessionWithUrlParams(this, fallbackMood, fallbackPlayerId);
+        }
+
+        /// <summary>
+        /// Starts a Skillprint session with URL parameter detection and override options
+        /// </summary>
+        /// <param name="fallbackMood">Mood to use if not found in URL</param>
+        /// <param name="fallbackPlayerId">Player ID to use if not found in URL</param>
+        /// <param name="overrideMood">Force this mood regardless of URL parameters</param>
+        /// <param name="overridePlayerId">Force this player ID regardless of URL parameters</param>
+        public void StartGameSessionWithOverrides(
+            string fallbackMood = "relax",
+            string fallbackPlayerId = null,
+            string overrideMood = null,
+            string overridePlayerId = null
+        )
+        {
+            SkillprintSessionHelper.StartSessionWithUrlParams(
+                this,
+                fallbackMood,
+                fallbackPlayerId,
+                overrideMood,
+                overridePlayerId
+            );
+        }
+
+        /// <summary>
+        /// Gets URL parameters for debugging purposes
+        /// </summary>
+        /// <returns>A string describing current URL parameters</returns>
+        public string GetUrlParametersInfo()
+        {
+            if (!WebGLUrlParameterExtractor.IsUrlParameterSupported())
+            {
+                return "URL parameters not supported on this platform (not WebGL)";
+            }
+
+            string currentUrl = WebGLUrlParameterExtractor.GetCurrentUrl();
+            var urlparams = WebGLUrlParameterExtractor.GetSkillprintUrlParameters();
+
+            return $"Current URL: {currentUrl}\nMood Parameter: '{urlparams.targetMood ?? "not found"}'\nPlayer ID Parameter: '{urlparams.playerId ?? "not found"}'";
         }
     }
 }
