@@ -245,6 +245,8 @@ namespace Skillprint.SDK
 
         /// <summary>
         /// Stops the current Skillprint game session.
+        /// Sends any remaining screenshots and the is_last_chunk=true signal
+        /// so the backend closes the session and triggers final scoring.
         /// </summary>
         public void StopGameSession()
         {
@@ -264,11 +266,37 @@ namespace Skillprint.SDK
             if (_pollResultsCoroutine != null)
                 StopCoroutine(_pollResultsCoroutine);
 
-            _screenshotQueue.ForEach(Destroy); // Clean up any remaining textures
+            // Send remaining screenshots (if any) with is_last_chunk=true
+            // to signal the backend to close the session and trigger final scoring.
+            string closingSessionId = _currentSessionId;
+            List<Texture2D> finalBatch = new List<Texture2D>(_screenshotQueue);
             _screenshotQueue.Clear();
 
-            // Optionally, call an API endpoint to notify Skillprint the session has ended
-            // StartCoroutine(_apiClient.EndSession(_currentSessionId, (success, response) => { ... }));
+            StartCoroutine(
+                _apiClient.PostScreenshots(
+                    closingSessionId,
+                    finalBatch,
+                    true, // is_last_chunk = true signals session end
+                    (success, response) =>
+                    {
+                        if (success)
+                        {
+                            Log(
+                                $"Session close signal sent successfully. Response: {response}"
+                            );
+                        }
+                        else
+                        {
+                            Log(
+                                $"Failed to send session close signal: {response}",
+                                LogLevel.Error
+                            );
+                        }
+                        // Clean up textures after the request completes
+                        finalBatch.ForEach(Destroy);
+                    }
+                )
+            );
 
             _currentSessionId = null;
             Log("Skillprint session stopped.");

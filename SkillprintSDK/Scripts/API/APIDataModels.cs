@@ -11,10 +11,9 @@ namespace Skillprint.SDK.API
     public class StartSessionRequest
     {
         public string sessionId;
-        public string game; // TODO verify game exists in in Skillprint API
-
-        // public List<ParameterInfo> game_parameters; // TODO change to game creation setting this list
+        public string game;
         public string targetMood;
+        public List<ParameterInfo> gameParameters;
     }
 
     [Serializable]

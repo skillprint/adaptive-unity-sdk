@@ -21,6 +21,12 @@ namespace Skillprint.SDK.API
         private const string CREATE_USER_ENDPOINT = "/partners/api/users/add/";
         private const string GET_USER_TOKEN_ENDPOINT = "/partners/api/users/auth/token/";
 
+        // Request configuration
+        private const int REQUEST_TIMEOUT_SECONDS = 10;
+        private const int UPLOAD_TIMEOUT_SECONDS = 30;
+        private const int MAX_UPLOAD_RETRIES = 2;
+        private const float RETRY_BASE_DELAY_SECONDS = 1.0f;
+
         public SkillprintAPIClient(
             string baseUrl,
             string partnerApiKey,
@@ -112,15 +118,15 @@ namespace Skillprint.SDK.API
             StartSessionRequest requestData = new StartSessionRequest
             {
                 sessionId = sessionId,
-                game = gameName, // TODO: This should be created if does not exist, but this must be implemented in the API.
-                // Here we must send the string representation of the mood. Not the enum.
+                game = gameName,
                 targetMood = targetMood,
-                // game_parameters = gameParameters // TODO: This should be set dynamically, created if does not exist.
+                gameParameters = gameParameters
             };
             string jsonData = JsonUtility.ToJson(requestData);
 
             using (UnityWebRequest webRequest = new UnityWebRequest(url, "POST"))
             {
+                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
                 byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
                 webRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
                 webRequest.downloadHandler = new DownloadHandlerBuffer();
@@ -244,30 +250,78 @@ namespace Skillprint.SDK.API
                 SkillprintManager.LogLevel.Info
             );
 
-            using (UnityWebRequest webRequest = UnityWebRequest.Post(url, formData))
+            // Retry loop for screenshot uploads — network blips shouldn't lose gameplay data
+            int attempt = 0;
+            bool succeeded = false;
+            string lastError = null;
+
+            while (attempt <= MAX_UPLOAD_RETRIES && !succeeded)
             {
-                webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
-                // UnityWebRequest.Post usually sets the Content-Type for multipart/form-data automatically,
-                // including the boundary.
-
-                yield return webRequest.SendWebRequest();
-
-                if (webRequest.result == UnityWebRequest.Result.Success)
+                if (attempt > 0)
                 {
+                    float delay = RETRY_BASE_DELAY_SECONDS * Mathf.Pow(2, attempt - 1);
                     _logger?.Invoke(
-                        $"PostScreenshots successful. Response: {webRequest.downloadHandler.text}",
-                        SkillprintManager.LogLevel.Info
+                        $"Retrying screenshot upload (attempt {attempt + 1}/{MAX_UPLOAD_RETRIES + 1}) after {delay}s...",
+                        SkillprintManager.LogLevel.Warning
                     );
-                    callback(true, webRequest.downloadHandler.text);
+                    yield return new WaitForSeconds(delay);
+
+                    // Rebuild form data for retry (UnityWebRequest can't be reused)
+                    formData = new List<IMultipartFormSection>();
+                    formData.Add(
+                        new MultipartFormDataSection("is_last_chunk", isLastChunk.ToString().ToLower())
+                    );
+                    for (int j = 0; j < screenshots.Count; j++)
+                    {
+                        if (screenshots[j] == null) continue;
+                        byte[] retryJpgData = screenshots[j].EncodeToJPG();
+                        if (retryJpgData == null || retryJpgData.Length == 0) continue;
+                        formData.Add(
+                            new MultipartFormFileSection(
+                                $"screenshot{j}", retryJpgData, $"screenshot_{j}.jpg", "image/jpeg"
+                            )
+                        );
+                    }
                 }
-                else
+
+                using (UnityWebRequest webRequest = UnityWebRequest.Post(url, formData))
                 {
-                    _logger?.Invoke(
-                        $"PostScreenshots Error: {webRequest.error}. Response Code: {webRequest.responseCode}. Details: {webRequest.downloadHandler.text}",
-                        SkillprintManager.LogLevel.Error
-                    );
-                    callback(false, webRequest.error + " | " + webRequest.downloadHandler.text);
+                    webRequest.timeout = UPLOAD_TIMEOUT_SECONDS;
+                    webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
+                    // UnityWebRequest.Post usually sets the Content-Type for multipart/form-data automatically,
+                    // including the boundary.
+
+                    yield return webRequest.SendWebRequest();
+
+                    if (webRequest.result == UnityWebRequest.Result.Success)
+                    {
+                        _logger?.Invoke(
+                            $"PostScreenshots successful. Response: {webRequest.downloadHandler.text}",
+                            SkillprintManager.LogLevel.Info
+                        );
+                        succeeded = true;
+                        callback(true, webRequest.downloadHandler.text);
+                    }
+                    else
+                    {
+                        lastError = webRequest.error + " | " + webRequest.downloadHandler.text;
+                        _logger?.Invoke(
+                            $"PostScreenshots Error (attempt {attempt + 1}): {webRequest.error}. Response Code: {webRequest.responseCode}. Details: {webRequest.downloadHandler.text}",
+                            SkillprintManager.LogLevel.Error
+                        );
+                    }
                 }
+
+                attempt++;
+            }
+
+            if (!succeeded)
+            {
+                _logger?.Invoke(
+                    $"PostScreenshots failed after {MAX_UPLOAD_RETRIES + 1} attempts. Last error: {lastError}",
+                    SkillprintManager.LogLevel.Error
+                );
+                callback(false, lastError);
             }
         }
 
@@ -281,6 +335,7 @@ namespace Skillprint.SDK.API
 
             using (UnityWebRequest webRequest = UnityWebRequest.Get(url))
             {
+                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
                 webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
                 webRequest.SetRequestHeader("Accept", "application/json");
 
@@ -472,6 +527,7 @@ namespace Skillprint.SDK.API
 
             using (UnityWebRequest webRequest = new UnityWebRequest(url, "POST"))
             {
+                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
                 byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
                 webRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
                 webRequest.downloadHandler = new DownloadHandlerBuffer();
@@ -515,6 +571,7 @@ namespace Skillprint.SDK.API
 
             using (UnityWebRequest webRequest = new UnityWebRequest(url, "POST"))
             {
+                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
                 byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
                 webRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
                 webRequest.downloadHandler = new DownloadHandlerBuffer();

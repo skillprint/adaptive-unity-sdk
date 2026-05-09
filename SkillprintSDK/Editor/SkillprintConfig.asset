@@ -15,9 +15,9 @@ MonoBehaviour:
   gameName: 
   targetEnvironment: 1
   productionPartnerApiKey: 
-  productionApiBaseUrl: https://api.skillprint.co/v1
+  productionApiBaseUrl: https://api.skillprint.co
   stagingPartnerApiKey: 
-  stagingApiBaseUrl: https://api.staging.skillprint.co/v1
+  stagingApiBaseUrl: https://api.staging.skillprint.co
   gameParameters: []
   screenshotIntervalSeconds: 2
   screenshotPostIntervalSeconds: 5

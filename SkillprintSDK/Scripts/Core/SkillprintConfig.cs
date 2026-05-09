@@ -24,17 +24,17 @@ namespace Skillprint.SDK
         [Tooltip("Your Skillprint Partner API Key for the PRODUCTION environment.")]
         public string productionPartnerApiKey;
 
-        [Tooltip("Base URL for the Skillprint PRODUCTION API. e.g., https://api.skillprint.co/v1")]
-        public string productionApiBaseUrl = "https://api.skillprint.co/v1";
+        [Tooltip("Base URL for the Skillprint PRODUCTION API. e.g., https://api.skillprint.co")]
+        public string productionApiBaseUrl = "https://api.skillprint.co";
 
         [Header("Staging API Configuration")]
         [Tooltip("Your Skillprint Partner API Key for the STAGING environment (if different).")]
         public string stagingPartnerApiKey;
 
         [Tooltip(
-            "Base URL for the Skillprint STAGING API. e.g., https://api.staging.skillprint.co/v1"
+            "Base URL for the Skillprint STAGING API. e.g., https://api.staging.skillprint.co"
         )]
-        public string stagingApiBaseUrl = "https://api.staging.skillprint.co/v1";
+        public string stagingApiBaseUrl = "https://api.staging.skillprint.co";
 
         [Header("Gameplay Parameters")]
         [Tooltip("List of game parameters the SDK can modify.")]

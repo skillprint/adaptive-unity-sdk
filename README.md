@@ -46,27 +46,29 @@ You can install the Skillprint SDK in your Unity project using one of the follow
 2. **Configure in Inspector:**
 
    **Game Configuration:**
-   - **Game Name:** Enter your game's registered slug in the Skillprint platform. This identifies your game when communicating with the API. *(Required)*
+   - **Game Name:** Enter your game's **slug** as registered in the Skillprint platform (e.g., `fruit-boom`, not `Fruit Boom`). This is the URL-friendly identifier for your game, not the display name. *(Required)*
 
    **Environment Configuration:**
    - **Target Environment:** Select `Production` or `Staging`.
 
    **Production API Configuration:**
    - **Partner API Key:** Enter your unique API key provided by Skillprint. *(Required)*
-   - **API Base URL:** Default: `https://api.skillprint.co/v1`. Only change this if instructed by the Skillprint team.
+   - **API Base URL:** Default: `https://api.skillprint.co`. Only change this if instructed by the Skillprint team.
 
    **Staging API Configuration:**
    - **Partner API Key (Staging):** Enter a separate staging key, or leave blank to reuse the production key.
-   - **API Base URL (Staging):** Default: `https://api.staging.skillprint.co/v1`.
+   - **API Base URL (Staging):** Default: `https://api.staging.skillprint.co`.
 
    **Gameplay Parameters:**
    - Click the `+` to add parameters Skillprint can control during sessions.
-   - **Parameter Name:** A unique identifier (e.g., `playerSpeed`, `enemySpawnRate`). **This must match the name registered with the Skillprint backend.**
+   - **Parameter Name:** A unique identifier (e.g., `playerSpeed`, `enemySpawnRate`).
    - **Description:** What this variable controls (e.g., "Controls the player's movement speed.").
    - **How SDK Changes It:** How Skillprint influences this (e.g., "Increased for grit mode, decreased for relax mode.").
    - **Type:** `Float`, `Integer`, or `Boolean`.
    - **Min/Max Value:** Valid range for `Float` or `Integer`.
    - **Default Value:** An initial/fallback value.
+
+   > **📌 Auto-Provisioning:** Parameters defined here are **automatically registered** on the Skillprint backend the first time a session is created. You do not need to manually configure them in the admin panel. If a parameter already exists on the backend (e.g., configured by an admin with custom ranges), the SDK will not overwrite it.
 
    **SDK Behavior:**
    - `Screenshot Interval Seconds`: How often to take screenshots (default: `2.0`).
@@ -146,6 +148,12 @@ SkillprintManager.Instance.StartGameSession("focus", "player-unique-id-123");
 | `focus` | Optimize for player engagement and flow state |
 | `relax` | Reduce difficulty for a more casual experience |
 | `grit` | Increase challenge for experienced players |
+| `creativity` | Encourage creative problem-solving and exploration |
+| `collaborate` | Foster cooperative and social play dynamics |
+| `joy` | Maximize fun and positive emotional experience |
+| `curiosity` | Stimulate discovery and exploratory behavior |
+| `empathy` | Encourage perspective-taking and emotional engagement |
+| `awe` | Create moments of wonder and amazement |
 
 **Player Identity:**
 When you provide a `customPlayerId`, the SDK automatically handles user provisioning:
@@ -163,7 +171,9 @@ Stop the Skillprint session when gameplay ends:
 SkillprintManager.Instance.StopGameSession();
 ```
 
-This cleans up all active coroutines, flushes the screenshot queue, and resets the session state.
+This sends any remaining queued screenshots, signals the platform that the session is complete so final analysis can begin, and cleans up all active coroutines.
+
+> **Important:** Always call `StopGameSession()` when gameplay ends (e.g., level complete, game over, player quits). Without this call, the session will eventually time out on the server side, but final scoring may be delayed.
 
 ---
 
@@ -215,9 +225,9 @@ SkillprintSDK/
 **Session Lifecycle:**
 
 ```
-StartGameSession()
+StartGameSession(mood, playerId)
   ├── Create/Get User Token (if customPlayerId provided)
-  ├── POST /games/api/sessions/ (start session)
+  ├── POST /games/api/sessions/ (create session)
   ├── Start Screenshot Capture Loop (every 2s)
   ├── Start Screenshot Post Loop (every 5s)
   │   └── POST /games/api/record-session/{sessionId}/
@@ -226,9 +236,10 @@ StartGameSession()
           └── Apply parameter updates via registered modifiers
 
 StopGameSession()
-  ├── Stop all coroutines
-  ├── Flush screenshot queue
-  └── Reset session state
+  ├── Stop capture & polling coroutines
+  ├── Send remaining screenshots + session close signal
+  ├── Platform triggers final analysis & scoring
+  └── Reset local session state
 ```
 
 ---
@@ -255,11 +266,112 @@ All requests include the `Authorization: Api-Key <your-key>` header. When a user
 |-------|----------|
 | "SkillprintConfig not assigned" | Drag your `SkillprintConfig.asset` to the Config slot on `SkillprintManager` |
 | "Partner API Key not set" | Enter your API key in the SkillprintConfig inspector |
-| "Game name is required" | Set your game's registered slug in the Game Configuration section |
-| "Invalid targetMood" | Use one of: `focus`, `relax`, `grit` |
+| "Game name is required" | Set your game's registered **slug** (e.g., `fruit-boom`) in the Game Configuration section |
+| "Invalid targetMood" | Use one of: `focus`, `relax`, `grit`, `creativity`, `collaborate`, `joy`, `curiosity`, `empathy`, `awe` |
 | Screenshots not uploading | Check `Enable Debug Logging` and verify internet connectivity |
-| Parameters not updating | Ensure parameter names match between config and `RegisterParameterModifier` calls |
+| Parameters not updating | Ensure parameter names in config **exactly match** your `RegisterParameterModifier` calls (case-sensitive) |
+| Parameters arriving as wrong type | The platform clamps values to your configured min/max range. Verify your parameter type and range in `SkillprintConfig` |
+| Session scores not appearing | Ensure you call `StopGameSession()` — this triggers final analysis on the platform |
 | WebGL URL params not detected | Verify you're running in a WebGL build (not the editor) |
+
+### 💡 Best Practices
+
+- **Always call `StopGameSession()`** when gameplay ends. This is required for final analysis.
+- **Register modifiers before starting a session.** The SDK applies updates as soon as they arrive — if modifiers aren't registered, updates are silently dropped.
+- **Use the game slug, not the display name** for the Game Name field. The slug is the URL-friendly version (lowercase, hyphens instead of spaces).
+- **Parameter names are case-sensitive** and must match exactly between your `SkillprintConfig`, your `RegisterParameterModifier` calls, and the Skillprint platform configuration.
+- **Keep screenshot intervals reasonable.** The default 2-second capture / 5-second upload cadence balances analysis quality with bandwidth. Shorter intervals increase accuracy but also data usage.
+
+---
+
+## 🎛️ Parameter Examples
+
+Skillprint dynamically adjusts your game by modifying parameters you define. Here are common examples organized by genre to help you decide what to expose.
+
+> 📌 **Auto-Provisioned**
+>
+> Parameters defined in your `SkillprintConfig` are **automatically registered** on the Skillprint backend when the first session is created. If a parameter with the same name already exists on the backend (e.g., configured by an admin with custom LLM instructions), the SDK will not overwrite it. You can fine-tune parameter behavior from the Skillprint admin panel at any time.
+
+### Platformer / Action Game
+
+| Parameter Name | Type | Min | Max | Default | What It Controls |
+|---|---|---|---|---|---|
+| `enemySpawnRate` | Float | 0.5 | 5.0 | 2.0 | Seconds between enemy spawns |
+| `playerSpeed` | Float | 3.0 | 12.0 | 7.0 | Player movement speed |
+| `platformGapSize` | Float | 1.0 | 6.0 | 3.0 | Distance between platforms |
+| `enemyDamage` | Integer | 1 | 5 | 2 | Damage dealt by enemies per hit |
+| `showHints` | Boolean | — | — | true | Whether to show contextual hints |
+
+```csharp
+SkillprintManager.Instance.RegisterParameterModifier<float>("enemySpawnRate", rate =>
+{
+    enemySpawner.spawnInterval = rate;
+});
+
+SkillprintManager.Instance.RegisterParameterModifier<float>("playerSpeed", speed =>
+{
+    playerController.moveSpeed = speed;
+});
+
+SkillprintManager.Instance.RegisterParameterModifier<bool>("showHints", show =>
+{
+    hintSystem.SetActive(show);
+});
+```
+
+### Puzzle Game
+
+| Parameter Name | Type | Min | Max | Default | What It Controls |
+|---|---|---|---|---|---|
+| `puzzleComplexity` | Integer | 1 | 10 | 5 | Number of elements in each puzzle |
+| `timeLimit` | Float | 30.0 | 300.0 | 120.0 | Seconds allowed per puzzle |
+| `hintCooldown` | Float | 5.0 | 60.0 | 30.0 | Seconds between available hints |
+| `undoEnabled` | Boolean | — | — | true | Whether the undo button is available |
+
+```csharp
+SkillprintManager.Instance.RegisterParameterModifier<int>("puzzleComplexity", complexity =>
+{
+    puzzleGenerator.complexity = complexity;
+    puzzleGenerator.RegenerateCurrent(); // Apply mid-session if needed
+});
+
+SkillprintManager.Instance.RegisterParameterModifier<float>("timeLimit", seconds =>
+{
+    timerUI.SetMaxTime(seconds);
+});
+```
+
+### Shooter / Competitive Game
+
+| Parameter Name | Type | Min | Max | Default | What It Controls |
+|---|---|---|---|---|---|
+| `enemyAccuracy` | Float | 0.1 | 1.0 | 0.5 | How often enemies land shots (0–1) |
+| `respawnDelay` | Float | 1.0 | 10.0 | 3.0 | Seconds before player respawns |
+| `ammoMultiplier` | Float | 0.5 | 3.0 | 1.0 | Multiplier for ammo pickup amounts |
+| `aiAggressiveness` | Integer | 1 | 5 | 3 | How aggressively AI pursues the player |
+
+```csharp
+SkillprintManager.Instance.RegisterParameterModifier<float>("enemyAccuracy", accuracy =>
+{
+    foreach (var enemy in activeEnemies)
+        enemy.aimAccuracy = accuracy;
+});
+
+SkillprintManager.Instance.RegisterParameterModifier<int>("aiAggressiveness", level =>
+{
+    aiDirector.SetAggressionLevel(level);
+});
+```
+
+### How Parameters Work End-to-End
+
+1. **You define parameters** in `SkillprintConfig` with name, type, and valid range.
+2. **You register them on the Skillprint backend** (same name, type, and range) through your partner dashboard.
+3. **You register modifier callbacks** in your game code via `RegisterParameterModifier<T>()`.
+4. **During a session**, Skillprint analyzes gameplay screenshots and determines optimal parameter values based on the target mood and player behavior.
+5. **The SDK polls for updates** and invokes your registered callbacks with the new values, automatically clamped to your defined min/max range.
+
+> 💡 **Tip:** Start with 2–4 parameters that have the biggest impact on your game's feel. You can always add more later. Skillprint works best when parameters represent meaningful gameplay levers, not cosmetic tweaks.
 
 ---
 
