@@ -12,40 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a998705326733471aa7c9165973b90c1, type: 3}
   m_Name: SkillprintConfig
   m_EditorClassIdentifier: 
+  gameName: 
   targetEnvironment: 1
   productionPartnerApiKey: 
-  productionApiBaseUrl: https://api.skillprint.com/v1
-  stagingPartnerApiKey: YSUPxCqH.nlk5QTpDL6sVe97mVCmyCxg5Uph91KKZ
-  stagingApiBaseUrl: localhost:8002
-  gameParameters:
-  - parameterName: fruitSpawnRate
-    description: Controls how frequently fruits are spawned
-    howSDKChangesIt: Modify for grit, mode and relax mode
-    type: 0
-    minValue: 0.5
-    maxValue: 3
-    defaultValue: 1
-  - parameterName: bombSpawnChance
-    description: Probability of spawning bombs vs fruits
-    howSDKChangesIt: Modify for grit, mode and relax mode
-    type: 0
-    minValue: 0
-    maxValue: 0.3
-    defaultValue: 0.05
-  - parameterName: pointsPerFruit
-    description: Multiplier applied to score gains
-    howSDKChangesIt: Modify for grit, mode and relax mode
-    type: 1
-    minValue: 1
-    maxValue: 5
-    defaultValue: 1
-  - parameterName: gameSpeedMultiplier
-    description: Overall game time scale
-    howSDKChangesIt: Modify for grit, mode and relax mode
-    type: 0
-    minValue: 0.5
-    maxValue: 2
-    defaultValue: 1
+  productionApiBaseUrl: https://api.skillprint.co/v1
+  stagingPartnerApiKey: 
+  stagingApiBaseUrl: https://api.staging.skillprint.co/v1
+  gameParameters: []
   screenshotIntervalSeconds: 2
   screenshotPostIntervalSeconds: 5
   pollResultsIntervalSeconds: 5

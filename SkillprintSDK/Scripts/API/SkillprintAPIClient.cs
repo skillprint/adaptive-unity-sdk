@@ -18,6 +18,8 @@ namespace Skillprint.SDK.API
         private const string START_SESSION_ENDPOINT = "/games/api/sessions/";
         private const string UPLOAD_SCREENSHOTS_ENDPOINT = "/games/api/record-session/{sessionId}/";
         private const string POLL_RESULTS_ENDPOINT = "/games/api/sessions/{sessionId}/";
+        private const string CREATE_USER_ENDPOINT = "/partners/api/users/add/";
+        private const string GET_USER_TOKEN_ENDPOINT = "/partners/api/users/auth/token/";
 
         public SkillprintAPIClient(
             string baseUrl,
@@ -34,6 +36,7 @@ namespace Skillprint.SDK.API
             string sessionId,
             string targetMood,
             string customPlayerId,
+            string gameName,
             List<ParameterInfo> gameParameters,
             Action<bool, string> callback
         )
@@ -57,10 +60,59 @@ namespace Skillprint.SDK.API
                 callback(false, errorMessage);
                 yield break; // Stop further execution
             }
+
+            // Create or get user token if customPlayerId is provided
+            string userToken = null;
+            if (!string.IsNullOrEmpty(customPlayerId))
+            {
+                bool tokenRetrieved = false;
+                string tokenResult = null;
+
+                yield return CreateOrGetUserToken(
+                    customPlayerId,
+                    (success, result) =>
+                    {
+                        tokenRetrieved = true;
+                        if (success)
+                        {
+                            userToken = result;
+                            _logger?.Invoke(
+                                $"User token obtained successfully for player: {customPlayerId}",
+                                SkillprintManager.LogLevel.Info
+                            );
+                        }
+                        else
+                        {
+                            tokenResult = result;
+                            _logger?.Invoke(
+                                $"Failed to obtain user token: {result}",
+                                SkillprintManager.LogLevel.Error
+                            );
+                        }
+                    }
+                );
+
+                // Wait for token retrieval to complete
+                while (!tokenRetrieved)
+                {
+                    yield return null;
+                }
+
+                // If token retrieval failed, we can still continue with session creation
+                // but log the issue
+                if (string.IsNullOrEmpty(userToken))
+                {
+                    _logger?.Invoke(
+                        $"Proceeding with session creation without user token. Error: {tokenResult}",
+                        SkillprintManager.LogLevel.Warning
+                    );
+                }
+            }
+
             StartSessionRequest requestData = new StartSessionRequest
             {
                 sessionId = sessionId,
-                game = "fruit-ninja", // TODO: This game should be set dynamically, created if does not exist.
+                game = gameName, // TODO: This should be created if does not exist, but this must be implemented in the API.
                 // Here we must send the string representation of the mood. Not the enum.
                 targetMood = targetMood,
                 // game_parameters = gameParameters // TODO: This should be set dynamically, created if does not exist.
@@ -74,6 +126,11 @@ namespace Skillprint.SDK.API
                 webRequest.downloadHandler = new DownloadHandlerBuffer();
                 webRequest.SetRequestHeader("Content-Type", "application/json");
                 webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
+                // If userToken is available, set it in the Authorization header
+                if (!string.IsNullOrEmpty(userToken))
+                {
+                    webRequest.SetRequestHeader("X-Auth-Token", "Token " + userToken);
+                }
 
                 yield return webRequest.SendWebRequest();
 
@@ -292,6 +349,241 @@ namespace Skillprint.SDK.API
                     callback(false, null);
                 }
             }
+        }
+
+        /// <summary>
+        /// Creates a new user with the given internal ID, or gets an existing user's token
+        /// </summary>
+        /// <param name="customPlayerId">The partner's internal player ID</param>
+        /// <param name="callback">Callback with success status and user token (or error message)</param>
+        /// <returns></returns>
+        public IEnumerator CreateOrGetUserToken(
+            string customPlayerId,
+            Action<bool, string> callback
+        )
+        {
+            if (string.IsNullOrEmpty(customPlayerId))
+            {
+                callback(false, "Custom player ID cannot be null or empty");
+                yield break;
+            }
+
+            // First, try to get an existing user token
+            bool tokenAttemptComplete = false;
+            bool tokenSuccess = false;
+            string tokenResult = null;
+
+            yield return GetUserToken(
+                customPlayerId,
+                (success, result) =>
+                {
+                    tokenAttemptComplete = true;
+                    tokenSuccess = success;
+                    tokenResult = result;
+                }
+            );
+
+            // Wait for the token attempt to complete
+            while (!tokenAttemptComplete)
+            {
+                yield return null;
+            }
+
+            if (tokenSuccess)
+            {
+                // User exists, token retrieved successfully
+                callback(true, tokenResult);
+            }
+            else
+            {
+                // User doesn't exist or token retrieval failed, try to create user
+                bool createAttemptComplete = false;
+                bool createSuccess = false;
+                string createResult = null;
+
+                yield return CreateUser(
+                    customPlayerId,
+                    (success, result) =>
+                    {
+                        createAttemptComplete = true;
+                        createSuccess = success;
+                        createResult = result;
+                    }
+                );
+
+                // Wait for the create attempt to complete
+                while (!createAttemptComplete)
+                {
+                    yield return null;
+                }
+
+                if (createSuccess)
+                {
+                    // User created successfully, now get token
+                    bool newTokenAttemptComplete = false;
+                    bool newTokenSuccess = false;
+                    string newTokenResult = null;
+
+                    yield return GetUserToken(
+                        customPlayerId,
+                        (success, result) =>
+                        {
+                            newTokenAttemptComplete = true;
+                            newTokenSuccess = success;
+                            newTokenResult = result;
+                        }
+                    );
+
+                    // Wait for the new token attempt to complete
+                    while (!newTokenAttemptComplete)
+                    {
+                        yield return null;
+                    }
+
+                    if (newTokenSuccess)
+                    {
+                        callback(true, newTokenResult);
+                    }
+                    else
+                    {
+                        callback(false, $"User created but failed to get token: {newTokenResult}");
+                    }
+                }
+                else
+                {
+                    callback(false, $"Failed to create user: {createResult}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Creates a new user with the given internal ID
+        /// </summary>
+        private IEnumerator CreateUser(string internalId, Action<bool, string> callback)
+        {
+            string url = _baseUrl + CREATE_USER_ENDPOINT;
+            _logger?.Invoke(
+                $"Creating user: POST {url} with internalId: {internalId}",
+                SkillprintManager.LogLevel.Info
+            );
+
+            CreateUserRequest requestData = new CreateUserRequest { internalId = internalId };
+            string jsonData = JsonUtility.ToJson(requestData);
+
+            using (UnityWebRequest webRequest = new UnityWebRequest(url, "POST"))
+            {
+                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
+                webRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                webRequest.downloadHandler = new DownloadHandlerBuffer();
+                webRequest.SetRequestHeader("Content-Type", "application/json");
+                webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
+
+                yield return webRequest.SendWebRequest();
+
+                if (webRequest.result == UnityWebRequest.Result.Success)
+                {
+                    _logger?.Invoke(
+                        $"CreateUser successful. Response: {webRequest.downloadHandler.text}",
+                        SkillprintManager.LogLevel.Info
+                    );
+                    callback(true, webRequest.downloadHandler.text);
+                }
+                else
+                {
+                    _logger?.Invoke(
+                        $"CreateUser Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
+                        SkillprintManager.LogLevel.Error
+                    );
+                    callback(false, webRequest.error + " | " + webRequest.downloadHandler.text);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets an authentication token for an existing user
+        /// </summary>
+        private IEnumerator GetUserToken(string internalId, Action<bool, string> callback)
+        {
+            string url = _baseUrl + GET_USER_TOKEN_ENDPOINT;
+            _logger?.Invoke(
+                $"Getting user token: POST {url} with internalId: {internalId}",
+                SkillprintManager.LogLevel.Info
+            );
+
+            GetUserTokenRequest requestData = new GetUserTokenRequest { internalId = internalId };
+            string jsonData = JsonUtility.ToJson(requestData);
+
+            using (UnityWebRequest webRequest = new UnityWebRequest(url, "POST"))
+            {
+                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
+                webRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                webRequest.downloadHandler = new DownloadHandlerBuffer();
+                webRequest.SetRequestHeader("Content-Type", "application/json");
+                webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
+
+                yield return webRequest.SendWebRequest();
+
+                if (webRequest.result == UnityWebRequest.Result.Success)
+                {
+                    _logger?.Invoke(
+                        $"GetUserToken successful. Response: {webRequest.downloadHandler.text}",
+                        SkillprintManager.LogLevel.Info
+                    );
+
+                    try
+                    {
+                        // Parse the response to extract the token
+                        GetUserTokenResponse tokenResponse =
+                            JsonUtility.FromJson<GetUserTokenResponse>(
+                                webRequest.downloadHandler.text
+                            );
+                        if (!string.IsNullOrEmpty(tokenResponse.token))
+                        {
+                            callback(true, tokenResponse.token);
+                        }
+                        else
+                        {
+                            callback(false, "Token not found in response");
+                        }
+                    }
+                    catch (System.Exception e)
+                    {
+                        _logger?.Invoke(
+                            $"Failed to parse token response: {e.Message}",
+                            SkillprintManager.LogLevel.Error
+                        );
+                        callback(false, "Failed to parse token response");
+                    }
+                }
+                else
+                {
+                    _logger?.Invoke(
+                        $"GetUserToken Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
+                        SkillprintManager.LogLevel.Error
+                    );
+                    callback(false, webRequest.error + " | " + webRequest.downloadHandler.text);
+                }
+            }
+        }
+
+        [System.Serializable]
+        public class CreateUserRequest
+        {
+            public string internalId;
+        }
+
+        [System.Serializable]
+        public class GetUserTokenRequest
+        {
+            public string internalId;
+        }
+
+        [System.Serializable]
+        public class GetUserTokenResponse
+        {
+            public string token;
+            public string expiry;
+            // User data can be added here if needed
         }
     }
 }

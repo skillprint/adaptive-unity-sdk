@@ -218,6 +218,7 @@ namespace Skillprint.SDK
                     _currentSessionId,
                     targetMood,
                     customPlayerId,
+                    config.gameName,
                     parameterInfos,
                     (success, response) =>
                     {

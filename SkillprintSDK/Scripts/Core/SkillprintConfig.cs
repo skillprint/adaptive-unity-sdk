@@ -1,17 +1,21 @@
-using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Skillprint.SDK
 {
     public enum ApiEnvironment
     {
         Production,
-        Staging
+        Staging,
     }
 
     [CreateAssetMenu(fileName = "SkillprintConfig", menuName = "Skillprint/SDK Configuration")]
     public class SkillprintConfig : ScriptableObject
     {
+        [Header("Game Configuration")]
+        [Tooltip("The name of your game as registered in the Skillprint API.")]
+        public string gameName;
+
         [Header("Environment Configuration")]
         [Tooltip("Select the API environment the SDK should target.")]
         public ApiEnvironment targetEnvironment = ApiEnvironment.Production;
@@ -19,15 +23,18 @@ namespace Skillprint.SDK
         [Header("Production API Configuration")]
         [Tooltip("Your Skillprint Partner API Key for the PRODUCTION environment.")]
         public string productionPartnerApiKey;
-        [Tooltip("Base URL for the Skillprint PRODUCTION API. e.g., https://api.skillprint.com/v1")]
-        public string productionApiBaseUrl = "https://api.skillprint.com/v1";
+
+        [Tooltip("Base URL for the Skillprint PRODUCTION API. e.g., https://api.skillprint.co/v1")]
+        public string productionApiBaseUrl = "https://api.skillprint.co/v1";
 
         [Header("Staging API Configuration")]
         [Tooltip("Your Skillprint Partner API Key for the STAGING environment (if different).")]
         public string stagingPartnerApiKey;
-        [Tooltip("Base URL for the Skillprint STAGING API. e.g., https://staging-api.skillprint.com/v1")]
-        public string stagingApiBaseUrl = "https://staging-api.skillprint.com/v1";
 
+        [Tooltip(
+            "Base URL for the Skillprint STAGING API. e.g., https://api.staging.skillprint.co/v1"
+        )]
+        public string stagingApiBaseUrl = "https://api.staging.skillprint.co/v1";
 
         [Header("Gameplay Parameters")]
         [Tooltip("List of game parameters the SDK can modify.")]
@@ -36,8 +43,10 @@ namespace Skillprint.SDK
         [Header("SDK Behavior")]
         [Tooltip("Interval in seconds for taking screenshots.")]
         public float screenshotIntervalSeconds = 2.0f;
+
         [Tooltip("Interval in seconds for posting screenshots to the API.")]
         public float screenshotPostIntervalSeconds = 5.0f;
+
         [Tooltip("Interval in seconds for polling parameter results from the API.")]
         public float pollResultsIntervalSeconds = 5.0f;
 
@@ -55,7 +64,9 @@ namespace Skillprint.SDK
                         return productionPartnerApiKey;
                     case ApiEnvironment.Staging:
                         // Use staging key if provided, otherwise fallback to production key (common scenario)
-                        return string.IsNullOrEmpty(stagingPartnerApiKey) ? productionPartnerApiKey : stagingPartnerApiKey;
+                        return string.IsNullOrEmpty(stagingPartnerApiKey)
+                            ? productionPartnerApiKey
+                            : stagingPartnerApiKey;
                     default:
                         return productionPartnerApiKey;
                 }

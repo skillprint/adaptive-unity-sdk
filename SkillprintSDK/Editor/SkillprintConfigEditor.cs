@@ -1,6 +1,6 @@
-using UnityEngine;
-using UnityEditor;
 using Skillprint.SDK; // Ensure this using directive is present
+using UnityEditor;
+using UnityEngine;
 
 namespace Skillprint.SDK.Editor
 {
@@ -18,6 +18,13 @@ namespace Skillprint.SDK.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("targetEnvironment"));
             EditorGUILayout.Space();
 
+            // --- Game Configuration ---
+            EditorGUILayout.LabelField("Game Configuration", EditorStyles.boldLabel);
+            EditorGUI.indentLevel++;
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("gameName"));
+            EditorGUI.indentLevel--;
+            EditorGUILayout.Space();
+
             // --- Production Settings ---
             EditorGUILayout.LabelField("Production Environment", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
@@ -29,18 +36,29 @@ namespace Skillprint.SDK.Editor
             // --- Staging Settings ---
             EditorGUILayout.LabelField("Staging Environment", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("stagingPartnerApiKey"), new GUIContent("Partner API Key (Staging)", "Leave blank to use Production API Key for Staging."));
+            EditorGUILayout.PropertyField(
+                serializedObject.FindProperty("stagingPartnerApiKey"),
+                new GUIContent(
+                    "Partner API Key (Staging)",
+                    "Leave blank to use Production API Key for Staging."
+                )
+            );
             EditorGUILayout.PropertyField(serializedObject.FindProperty("stagingApiBaseUrl"));
             EditorGUI.indentLevel--;
             EditorGUILayout.Space();
 
-
             EditorGUILayout.LabelField("SDK Behavior", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
             EditorGUILayout.PropertyField(serializedObject.FindProperty("enableDebugLogging"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("screenshotIntervalSeconds"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("screenshotPostIntervalSeconds"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("pollResultsIntervalSeconds"));
+            EditorGUILayout.PropertyField(
+                serializedObject.FindProperty("screenshotIntervalSeconds")
+            );
+            EditorGUILayout.PropertyField(
+                serializedObject.FindProperty("screenshotPostIntervalSeconds")
+            );
+            EditorGUILayout.PropertyField(
+                serializedObject.FindProperty("pollResultsIntervalSeconds")
+            );
             EditorGUI.indentLevel--;
             EditorGUILayout.Space();
 
@@ -51,29 +69,50 @@ namespace Skillprint.SDK.Editor
             // Validation checks
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Active Configuration Preview:", EditorStyles.miniBoldLabel);
-            EditorGUILayout.HelpBox($"Target Env: {config.targetEnvironment}\nActive API Key: {config.ActivePartnerApiKey}\nActive Base URL: {config.ActiveApiBaseUrl}", MessageType.None);
-
+            EditorGUILayout.HelpBox(
+                $"Target Env: {config.targetEnvironment}\nActive API Key: {config.ActivePartnerApiKey}\nActive Base URL: {config.ActiveApiBaseUrl}",
+                MessageType.None
+            );
 
             // Validation checks
+            if (string.IsNullOrWhiteSpace(config.gameName))
+            {
+                EditorGUILayout.HelpBox("Game name is required.", MessageType.Error);
+            }
             if (string.IsNullOrWhiteSpace(config.ActivePartnerApiKey))
             {
-                EditorGUILayout.HelpBox("The active Partner API Key is required for the selected environment.", MessageType.Error);
+                EditorGUILayout.HelpBox(
+                    "The active Partner API Key is required for the selected environment.",
+                    MessageType.Error
+                );
             }
             if (string.IsNullOrWhiteSpace(config.ActiveApiBaseUrl))
             {
-                EditorGUILayout.HelpBox("The active API Base URL is required for the selected environment.", MessageType.Error);
+                EditorGUILayout.HelpBox(
+                    "The active API Base URL is required for the selected environment.",
+                    MessageType.Error
+                );
             }
             if (config.screenshotIntervalSeconds <= 0)
             {
-                EditorGUILayout.HelpBox("Screenshot Interval must be positive.", MessageType.Warning);
+                EditorGUILayout.HelpBox(
+                    "Screenshot Interval must be positive.",
+                    MessageType.Warning
+                );
             }
             if (config.screenshotPostIntervalSeconds <= config.screenshotIntervalSeconds)
             {
-                EditorGUILayout.HelpBox("Screenshot Post Interval should generally be greater than Screenshot Interval.", MessageType.Warning);
+                EditorGUILayout.HelpBox(
+                    "Screenshot Post Interval should generally be greater than Screenshot Interval.",
+                    MessageType.Warning
+                );
             }
             if (config.pollResultsIntervalSeconds <= 0)
             {
-                EditorGUILayout.HelpBox("Poll Results Interval must be positive.", MessageType.Warning);
+                EditorGUILayout.HelpBox(
+                    "Poll Results Interval must be positive.",
+                    MessageType.Warning
+                );
             }
 
             // TODO add more detailed per-parameter validation here if needed
