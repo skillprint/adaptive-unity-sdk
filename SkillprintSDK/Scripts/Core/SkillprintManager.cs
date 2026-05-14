@@ -117,50 +117,84 @@ namespace Skillprint.SDK
         /// <param name="updateAction">The Action to call when this parameter needs to be updated.</param>
         public void RegisterParameterModifier<T>(string parameterName, Action<T> updateAction)
         {
-            if (_registeredParameters.TryGetValue(parameterName, out ParameterDefinition paramDef))
+            // If the parameter doesn't exist in _registeredParameters (i.e. not in
+            // the ScriptableObject config), auto-create a ParameterDefinition so
+            // it is still sent to the backend for auto-provisioning.
+            if (!_registeredParameters.TryGetValue(parameterName, out ParameterDefinition paramDef))
             {
-                // Type check
-                bool typeMatch = false;
-                if (typeof(T) == typeof(float) && paramDef.type == ParameterType.Float)
-                    typeMatch = true;
-                else if (typeof(T) == typeof(int) && paramDef.type == ParameterType.Integer)
-                    typeMatch = true;
-                else if (typeof(T) == typeof(bool) && paramDef.type == ParameterType.Boolean)
-                    typeMatch = true;
+                ParameterType inferredType = ParameterType.Float;
+                float defaultMin = 0f;
+                float defaultMax = 1f;
 
-                if (!typeMatch)
+                if (typeof(T) == typeof(float))
                 {
-                    Log(
-                        $"Type mismatch for parameter '{parameterName}'. Expected {paramDef.type}, but got {typeof(T)}. Modifier not registered.",
-                        LogLevel.Error
-                    );
-                    return;
+                    inferredType = ParameterType.Float;
+                    defaultMin = 0f;
+                    defaultMax = 1f;
+                }
+                else if (typeof(T) == typeof(int))
+                {
+                    inferredType = ParameterType.Integer;
+                    defaultMin = 0f;
+                    defaultMax = 100f;
+                }
+                else if (typeof(T) == typeof(bool))
+                {
+                    inferredType = ParameterType.Boolean;
+                    defaultMin = 0f;
+                    defaultMax = 1f;
                 }
 
-                paramDef.UpdateAction = (value) =>
+                paramDef = new ParameterDefinition
                 {
-                    if (value is T typedValue)
-                    {
-                        updateAction(typedValue);
-                    }
-                    else
-                    {
-                        // This case should ideally be caught by ConvertValue, but good to have a fallback
-                        Log(
-                            $"Type conversion failed for parameter '{parameterName}' during update. Expected {typeof(T)}, got {value?.GetType()}.",
-                            LogLevel.Error
-                        );
-                    }
+                    parameterName = parameterName,
+                    description = $"Runtime-registered parameter '{parameterName}'",
+                    type = inferredType,
+                    minValue = defaultMin,
+                    maxValue = defaultMax,
                 };
-                Log($"Parameter '{parameterName}' modifier registered successfully.");
-            }
-            else
-            {
+
+                _registeredParameters.Add(parameterName, paramDef);
                 Log(
-                    $"Attempted to register modifier for undefined parameter: '{parameterName}'. Ensure it's in SkillprintConfig.",
+                    $"Parameter '{parameterName}' was not in SkillprintConfig. Auto-created with type={inferredType}. " +
+                    $"Consider adding it to the config for proper min/max/description.",
                     LogLevel.Warning
                 );
             }
+
+            // Type check
+            bool typeMatch = false;
+            if (typeof(T) == typeof(float) && paramDef.type == ParameterType.Float)
+                typeMatch = true;
+            else if (typeof(T) == typeof(int) && paramDef.type == ParameterType.Integer)
+                typeMatch = true;
+            else if (typeof(T) == typeof(bool) && paramDef.type == ParameterType.Boolean)
+                typeMatch = true;
+
+            if (!typeMatch)
+            {
+                Log(
+                    $"Type mismatch for parameter '{parameterName}'. Expected {paramDef.type}, but got {typeof(T)}. Modifier not registered.",
+                    LogLevel.Error
+                );
+                return;
+            }
+
+            paramDef.UpdateAction = (value) =>
+            {
+                if (value is T typedValue)
+                {
+                    updateAction(typedValue);
+                }
+                else
+                {
+                    Log(
+                        $"Type conversion failed for parameter '{parameterName}' during update. Expected {typeof(T)}, got {value?.GetType()}.",
+                        LogLevel.Error
+                    );
+                }
+            };
+            Log($"Parameter '{parameterName}' modifier registered successfully.");
         }
 
         /// <summary>
@@ -194,9 +228,11 @@ namespace Skillprint.SDK
                 LogLevel.Info
             );
 
-            // Construct parameter info to send to Skillprint
-            var parameterInfos = config
-                .gameParameters.Select(p => new API.ParameterInfo
+            // Construct parameter info from _registeredParameters, which is the
+            // union of config.gameParameters AND any runtime-registered params.
+            // This ensures the backend always receives the full parameter set.
+            var parameterInfos = _registeredParameters.Values
+                .Select(p => new API.ParameterInfo
                 {
                     name = p.parameterName,
                     type = p.type.ToString(),
@@ -212,6 +248,11 @@ namespace Skillprint.SDK
                             : null,
                 })
                 .ToList();
+            Log(
+                $"Sending {parameterInfos.Count} game parameter(s) to API: " +
+                string.Join(", ", parameterInfos.Select(p => p.name)),
+                LogLevel.Warning
+            );
 
             StartCoroutine(
                 _apiClient.StartSession(
