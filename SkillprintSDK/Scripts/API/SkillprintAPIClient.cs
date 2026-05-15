@@ -166,7 +166,8 @@ namespace Skillprint.SDK.API
             string sessionId,
             List<Texture2D> screenshots,
             bool isLastChunk, // isLastChunk parameter must be sent when closing the session.
-            Action<bool, string> callback
+            Action<bool, string> callback,
+            int jpegQuality = 75 // Default to Unity's default quality for backward compatibility
         )
         {
             // TODO: Avoid sending duplicated screenshots in the same batch or from the previous one. This is to avoid processing gameplay when user is in a menu or still.
@@ -206,7 +207,7 @@ namespace Skillprint.SDK.API
                     );
                     continue;
                 }
-                byte[] jpgData = screenshots[i].EncodeToJPG();
+                byte[] jpgData = screenshots[i].EncodeToJPG(jpegQuality);
                 if (jpgData == null || jpgData.Length == 0)
                 {
                     _logger?.Invoke(

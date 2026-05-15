@@ -18,7 +18,9 @@ namespace Skillprint.SDK
         /// Uses ReadPixels for better control and to avoid UI elements if needed,
         /// but runs at end of frame.
         /// </summary>
-        public IEnumerator CaptureScreenshot(Action<Texture2D> callback)
+        /// <param name="callback">Called with the captured Texture2D.</param>
+        /// <param name="maxWidth">If > 0, images wider than this are downscaled.</param>
+        public IEnumerator CaptureScreenshot(Action<Texture2D> callback, int maxWidth = 0)
         {
             // Wait until the end of the frame so all rendering is complete
             yield return new WaitForEndOfFrame();
@@ -30,12 +32,18 @@ namespace Skillprint.SDK
                 screenshot.ReadPixels(new Rect(0, 0, Screen.width, Screen.height), 0, 0);
                 screenshot.Apply(); // Apply C++ texture changes to this Texture2D
 
-                // Optional: Downscale texture for performance/size if full resolution isn't needed
-                // Texture2D scaledScreenshot = ScaleTexture(screenshot, 0.5f); // e.g., 50% scale
-                // Destroy(screenshot); // Destroy original if scaled
-                // callback(scaledScreenshot);
-
-                callback(screenshot);
+                // Downscale if the image exceeds maxWidth
+                if (maxWidth > 0 && screenshot.width > maxWidth)
+                {
+                    float scale = (float)maxWidth / screenshot.width;
+                    Texture2D scaled = ScaleTexture(screenshot, scale);
+                    UnityEngine.Object.Destroy(screenshot);
+                    callback(scaled);
+                }
+                else
+                {
+                    callback(screenshot);
+                }
             }
             catch (Exception e)
             {

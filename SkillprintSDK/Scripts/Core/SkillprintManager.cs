@@ -148,7 +148,7 @@ namespace Skillprint.SDK
                 paramDef = new ParameterDefinition
                 {
                     parameterName = parameterName,
-                    description = $"Runtime-registered parameter '{parameterName}'",
+                    description = $"Game parameter '{parameterName}' (auto-detected {inferredType})",
                     type = inferredType,
                     minValue = defaultMin,
                     maxValue = defaultMax,
@@ -198,6 +198,35 @@ namespace Skillprint.SDK
         }
 
         /// <summary>
+        /// Registers a parameter modifier with a custom description.
+        /// Use this overload when registering parameters at runtime that are not
+        /// defined in the SkillprintConfig ScriptableObject.
+        /// </summary>
+        /// <typeparam name="T">The type of the parameter (float, int, bool).</typeparam>
+        /// <param name="parameterName">The name of the parameter.</param>
+        /// <param name="updateAction">The Action to call when this parameter needs to be updated.</param>
+        /// <param name="description">A description of what this game variable controls.</param>
+        /// <param name="howItWorks">Optional: Explanation of how the parameter affects gameplay.</param>
+        public void RegisterParameterModifier<T>(
+            string parameterName,
+            Action<T> updateAction,
+            string description,
+            string howItWorks = null)
+        {
+            // Register using the base overload (which auto-creates if needed)
+            RegisterParameterModifier<T>(parameterName, updateAction);
+
+            // Enrich the definition with the provided description/guide
+            if (_registeredParameters.TryGetValue(parameterName, out ParameterDefinition paramDef))
+            {
+                if (!string.IsNullOrEmpty(description))
+                    paramDef.description = description;
+                if (!string.IsNullOrEmpty(howItWorks))
+                    paramDef.howSDKChangesIt = howItWorks;
+            }
+        }
+
+        /// <summary>
         /// Starts a new Skillprint game session.
         /// </summary>
         /// <param name="customPlayerId">Optional: A custom player identifier if your game uses one.</param>
@@ -237,6 +266,7 @@ namespace Skillprint.SDK
                     name = p.parameterName,
                     type = p.type.ToString(),
                     description = p.description,
+                    adjustmentGuide = p.howSDKChangesIt,
                     // Include range if applicable
                     minValue =
                         (p.type == ParameterType.Float || p.type == ParameterType.Integer)
@@ -335,7 +365,8 @@ namespace Skillprint.SDK
                         }
                         // Clean up textures after the request completes
                         finalBatch.ForEach(Destroy);
-                    }
+                    },
+                    config.screenshotJpegQuality
                 )
             );
 
@@ -371,7 +402,8 @@ namespace Skillprint.SDK
                                 Destroy(texture);
                             }
                         }
-                    }
+                    },
+                    config.screenshotMaxWidth
                 );
             }
         }
@@ -422,7 +454,8 @@ namespace Skillprint.SDK
                                 }
                                 // Clean up textures that were attempted to be posted
                                 batchToPost.ForEach(Destroy);
-                            }
+                            },
+                            config.screenshotJpegQuality
                         )
                     );
                 }
@@ -464,10 +497,27 @@ namespace Skillprint.SDK
         {
             foreach (var update in updates)
             {
+                // Use GetParsedValue() which handles null, empty, and
+                // alternative JSON formats — update.newValue alone is
+                // unreliable because JsonUtility can't deserialize `object`.
+                object parsedValue = update.GetParsedValue();
+
                 Log(
-                    $"[DEBUG] Received update - Name: {update.parameterName}, Value: '{update.newValue}', Type: {(update.newValue == null ? "null" : update.newValue.GetType().ToString())}",
+                    $"[DEBUG] Received update - Name: {update.parameterName}, " +
+                    $"RawValue: '{update.newValue}', ParsedValue: '{parsedValue}', " +
+                    $"Type: {(parsedValue == null ? "null" : parsedValue.GetType().ToString())}",
                     LogLevel.Info
                 );
+
+                if (parsedValue == null)
+                {
+                    Log(
+                        $"Parameter '{update.parameterName}' received null value from API. Skipping.",
+                        LogLevel.Warning
+                    );
+                    continue;
+                }
+
                 if (
                     _registeredParameters.TryGetValue(
                         update.parameterName,
@@ -484,7 +534,7 @@ namespace Skillprint.SDK
                         continue;
                     }
 
-                    object convertedValue = paramDef.ConvertValue(update.newValue);
+                    object convertedValue = paramDef.ConvertValue(parsedValue);
 
                     if (convertedValue != null && paramDef.IsValid(convertedValue))
                     {
@@ -506,7 +556,9 @@ namespace Skillprint.SDK
                     else
                     {
                         Log(
-                            $"Invalid value or type for parameter {paramDef.parameterName}: '{update.newValue}'. Expected type: {paramDef.type}, Range: {paramDef.minValue}-{paramDef.maxValue}. Skipping.",
+                            $"Invalid value or type for parameter {paramDef.parameterName}: '{parsedValue}'. " +
+                            $"Converted: '{convertedValue}'. Expected type: {paramDef.type}, " +
+                            $"Range: {paramDef.minValue}-{paramDef.maxValue}. Skipping.",
                             LogLevel.Warning
                         );
                     }

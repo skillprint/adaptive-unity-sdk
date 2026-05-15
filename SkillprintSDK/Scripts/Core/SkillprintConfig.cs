@@ -41,6 +41,13 @@ namespace Skillprint.SDK
         public List<ParameterDefinition> gameParameters = new List<ParameterDefinition>();
 
         [Header("SDK Behavior")]
+        [Tooltip("Maximum width for screenshots in pixels. Images wider than this are downscaled before upload. 0 = no limit.")]
+        public int screenshotMaxWidth = 960;
+
+        [Tooltip("JPEG compression quality (1-100). Lower values produce smaller files.")]
+        [Range(1, 100)]
+        public int screenshotJpegQuality = 60;
+
         [Tooltip("Interval in seconds for taking screenshots.")]
         public float screenshotIntervalSeconds = 2.0f;
 

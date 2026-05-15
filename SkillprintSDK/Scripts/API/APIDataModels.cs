@@ -22,6 +22,7 @@ namespace Skillprint.SDK.API
         public string name;
         public string type;
         public string description;
+        public string adjustmentGuide; // Maps from ParameterDefinition.howSDKChangesIt
         public string minValue; // Sent as string, can be null
         public string maxValue; // Sent as string, can be null
     }
