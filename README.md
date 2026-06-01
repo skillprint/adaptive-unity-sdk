@@ -270,6 +270,39 @@ public class ProfileController : MonoBehaviour
 
 ---
 
+## 🌐 Profile WebView Widget
+
+The Skillprint Unity SDK includes a modular Canvas-based WebView widget (`SkillprintWebViewWidget`) that loads the player's profile page (`https://marketplace.skillprint.co/profile`) in an embedded WebView.
+
+It automatically calculates screen margins from a `RectTransform` (supporting Canvas Scaler, resolution resizing, and device rotation) and positions the WebView as an overlay. It uses reflection to interface with the popular `gree/unity-webview` plugin, meaning **the SDK compiles without errors out-of-the-box even if the plugin is not installed**.
+
+### 1. Requirements
+
+- [gree/unity-webview](https://github.com/gree/unity-webview) installed in your Unity project.
+  - To install via UPM, add `"net.gree.unity-webview": "https://github.com/gree/unity-webview.git?path=/dist/package"` to your project's `Packages/manifest.json`.
+
+### 2. Adding the WebView to a Canvas
+
+1. Create a **UI Panel** on your Canvas (e.g. named `ProfileWebViewWidget`) where you want the web view to render.
+2. Attach the `SkillprintWebViewWidget` component to this GameObject.
+3. In the Inspector, configure:
+   - **Base Url:** The profile URL, defaults to `https://marketplace.skillprint.co/profile`.
+   - **User Token:** Leave empty to automatically resolve the currently logged-in user's token from `SkillprintManager` at runtime.
+   - **User ID:** Leave empty to automatically resolve the player ID.
+   - **Viewport Rect:** Assign the `RectTransform` defining the screen bounds. If left null, the component's own `RectTransform` will define the bounds.
+   - **Show Editor Placeholder:** (True by default) Renders a styled dark panel inside the Unity Editor scene view to preview the web view's layout.
+4. Enter Play Mode. The widget will automatically load the profile page and align perfectly with your UI!
+
+### 3. Programmatic URL Customization
+
+You can dynamically retrieve the calculated URL with resolved tokens at any time using:
+
+```csharp
+string finalUrl = myWebViewWidget.BuildUrl();
+```
+
+---
+
 ## 🌐 WebGL Support
 
 For WebGL builds, the SDK provides helper methods that automatically extract session parameters from the page URL. This is useful when Skillprint launches your game with specific parameters embedded in the URL.

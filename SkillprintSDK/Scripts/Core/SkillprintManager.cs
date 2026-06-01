@@ -10,6 +10,8 @@ namespace Skillprint.SDK
     public class SkillprintManager : MonoBehaviour
     {
         public static SkillprintManager Instance { get; private set; }
+        public string CurrentUserToken => _currentUserToken;
+        public string CurrentPlayerId => _currentPlayerId;
 
         [Tooltip("Assign your SkillprintConfig ScriptableObject here.")]
         public SkillprintConfig config;
@@ -17,6 +19,7 @@ namespace Skillprint.SDK
         private string _currentSessionId;
         private bool _isSessionActive = false;
         private string _currentUserToken = null;
+        private string _currentPlayerId = null;
         private SkillprintAPIClient _apiClient;
         private ScreenshotUtility _screenshotUtility;
 
@@ -253,6 +256,7 @@ namespace Skillprint.SDK
 
             _currentSessionId = Guid.NewGuid().ToString();
             _isSessionActive = true;
+            _currentPlayerId = customPlayerId;
             Log(
                 $"Starting game session for {config.targetEnvironment} environment.",
                 LogLevel.Info
@@ -372,6 +376,7 @@ namespace Skillprint.SDK
             );
 
             _currentSessionId = null;
+            _currentPlayerId = null;
             Log("Skillprint session stopped.");
         }
 
