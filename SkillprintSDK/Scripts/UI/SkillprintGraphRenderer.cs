@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-namespace Skillprint.UI
+namespace Skillprint.SDK.UI
 {
     [ExecuteAlways]
     [RequireComponent(typeof(RectTransform))]

@@ -177,6 +177,99 @@ This sends any remaining queued screenshots, signals the platform that the sessi
 
 ---
 
+## 📊 User Profile Graph (Visualization)
+
+The Skillprint Unity SDK includes a modular circular profile graph component (`SkillprintGraphRenderer`) and a test harness widget (`SkillprintProfileHarness`) to retrieve player profile and progression data and visualize it dynamically in your UI.
+
+The circular profile graph displays:
+- **Moods:** `Innovate`, `Relax`, `Focus`, and `Collaborate`.
+- **Skills:** `Problem Solving`, `Memory`, `Speed`, `Accuracy`, `Pattern Recognition`, `Spatial Awareness`, `Logic`, and `Creativity`.
+
+Nodes on the graph are highlighted as **active** (using your defined active color) based on whether the player has scores or gameplay history associated with those skills and moods.
+
+### 1. Adding the Graph to a Canvas
+
+1. In your Unity hierarchy, right-click on your Canvas and select **UI -> Panel** (or create a new GameObject with a `RectTransform` on your Canvas). Name it `SkillprintGraph`.
+2. Add the `SkillprintGraphRenderer` component to `SkillprintGraph`.
+3. In the Inspector, configure the visual appearance:
+   - **Colors:** Set the active node color, inactive node color, and outer circle outline color.
+   - **Labels & Fonts:** Assign a TMPro `Font Asset` to render the skill and mood labels.
+   - **Center Logo:** Optionally assign a `Center Logo Sprite` (e.g. the Skillprint logo) to draw in the middle of the graph.
+4. Click `Refresh` or drag/resize the `RectTransform` to see the preview render in the Editor.
+
+### 2. Hooking Up the Profile Harness Widget
+
+The SDK provides a modular `SkillprintProfileHarness` script to automatically fetch profile details from the Skillprint API and redraw the graph.
+
+1. Create a new UI **Button** on your Canvas (e.g. named `LoadProfileButton`).
+2. Attach the `SkillprintProfileHarness` component to a GameObject (or the graph itself).
+3. In the Inspector, assign:
+   - **Graph Renderer:** Drag your `SkillprintGraph` renderer reference here.
+   - **Load Profile Button:** Drag your UI `Button` reference here.
+   - **Custom Player ID:** Enter the player ID to test with (e.g. `player01@demo.skillprint.co`).
+   - **Fetch Skill Progression:** Check this to fetch cognitive skill scores (like Memory, Speed) in addition to mood flow history.
+4. Enter Play Mode and click the button to fetch the player's profile and see the graph update dynamically!
+
+### 3. Programmatic Profile Retrieval & Graph Update
+
+If you want to write custom code to load the profile and populate the graph, you can use the following API wrapper methods:
+
+```csharp
+using UnityEngine;
+using Skillprint.UI;
+using Skillprint.SDK;
+
+public class ProfileController : MonoBehaviour
+{
+    public SkillprintGraphRenderer graphRenderer;
+    public string playerId = "player-unique-id-123";
+
+    public void RefreshProfileVisuals()
+    {
+        // 1. Fetch user profile (mood flow history)
+        SkillprintManager.Instance.GetUserProfile(playerId, (success, profileRes) =>
+        {
+            if (!success || profileRes == null) return;
+
+            // Collect active moods from history
+            HashSet<string> activeNames = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+            if (profileRes.results != null && profileRes.results.Count > 0)
+            {
+                foreach (var entry in profileRes.results[0].flowScoreHistory)
+                {
+                    activeNames.Add(entry.targetMood);
+                }
+            }
+
+            // 2. Fetch skill progression (active cognitive skills)
+            SkillprintManager.Instance.GetSkillProgression(playerId, (progSuccess, progRes) =>
+            {
+                if (progSuccess && progRes != null && progRes.yearlySummary != null)
+                {
+                    foreach (var item in progRes.yearlySummary)
+                    {
+                        if (!string.IsNullOrEmpty(item.skill)) activeNames.Add(item.skill);
+                        if (!string.IsNullOrEmpty(item.mood)) activeNames.Add(item.mood);
+                    }
+                }
+
+                // 3. Update active state of each node in the renderer
+                foreach (var node in graphRenderer.skills)
+                {
+                    node.isActive = activeNames.Contains(node.skillName);
+                }
+
+                // 4. Force redraw
+                graphRenderer.Refresh();
+                graphRenderer.SetMeshDirty();
+            });
+        });
+    }
+}
+```
+
+---
+
 ## 🌐 WebGL Support
 
 For WebGL builds, the SDK provides helper methods that automatically extract session parameters from the page URL. This is useful when Skillprint launches your game with specific parameters embedded in the URL.

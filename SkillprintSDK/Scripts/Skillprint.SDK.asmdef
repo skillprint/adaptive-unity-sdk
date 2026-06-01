@@ -1,7 +1,10 @@
 {
     "name": "Skillprint.SDK",
     "rootNamespace": "Skillprint.SDK",
-    "references": [],
+    "references": [
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
