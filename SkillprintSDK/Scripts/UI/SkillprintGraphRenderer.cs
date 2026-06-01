@@ -7,8 +7,8 @@ using TMPro;
 namespace Skillprint.UI
 {
     [ExecuteAlways]
-    [RequireComponent(typeof(CanvasRenderer))]
-    public class SkillprintGraphRenderer : MaskableGraphic
+    [RequireComponent(typeof(RectTransform))]
+    public class SkillprintGraphRenderer : MonoBehaviour
     {
         [System.Serializable]
         public class SkillNodeData
@@ -76,16 +76,20 @@ namespace Skillprint.UI
         private Sprite _circleSprite;
         private Texture2D _lineTexture;
 
-        public override Texture mainTexture
+        private RectTransform _rectTransform;
+        public RectTransform rectTransform
         {
             get
             {
-                EnsureTextures();
-                return _lineTexture != null ? _lineTexture : base.mainTexture;
+                if (_rectTransform == null) _rectTransform = GetComponent<RectTransform>();
+                return _rectTransform;
             }
         }
 
-        private void EnsureTextures()
+        public Texture2D LineTexture => _lineTexture;
+        public Sprite CircleSprite => _circleSprite;
+
+        public void EnsureTextures()
         {
             if (_circleSprite == null || _lineTexture == null)
             {
@@ -146,17 +150,15 @@ namespace Skillprint.UI
             }
         }
 
-        protected override void Start()
+        private void Start()
         {
-            base.Start();
             Refresh();
         }
 
         #if UNITY_EDITOR
-        protected override void OnValidate()
+        private void OnValidate()
         {
-            base.OnValidate();
-            // In OnValidate, wait until next frame or queue update to avoid modifying hierarchy inside serialization loop
+            // Wait until next frame or queue update to avoid modifying hierarchy inside serialization loop
             if (gameObject.activeInHierarchy)
             {
                 UnityEditor.EditorApplication.delayCall -= DelayRebuild;
@@ -168,9 +170,22 @@ namespace Skillprint.UI
         {
             if (this == null) return;
             Refresh();
-            SetAllDirty();
+            SetMeshDirty();
         }
         #endif
+
+        public void SetMeshDirty()
+        {
+            var meshGo = transform.Find("VectorMesh");
+            if (meshGo != null)
+            {
+                var meshComponent = meshGo.GetComponent<SkillprintGraphMesh>();
+                if (meshComponent != null)
+                {
+                    meshComponent.SetAllDirty();
+                }
+            }
+        }
 
         public void Refresh()
         {
@@ -178,6 +193,7 @@ namespace Skillprint.UI
             
             // Check if we need a structural rebuild
             bool needsRebuild = _nodesContainer == null || 
+                                transform.Find("VectorMesh") == null ||
                                 transform.Find("CenterHub") == null ||
                                 (showBackground && transform.Find("GraphBackground") == null) ||
                                 _nodesContainer.childCount != skills.Count;
@@ -204,7 +220,6 @@ namespace Skillprint.UI
                 var bgGo = bgTransform.gameObject;
                 if (showBackground)
                 {
-                    bgGo.transform.SetAsFirstSibling();
                     var bgRect = bgGo.GetComponent<RectTransform>();
                     float bgSize = ((outerRadius + labelOffset + labelWidth) * graphScale + graphPadding) * 2f;
                     bgRect.sizeDelta = new Vector2(bgSize, bgSize);
@@ -231,7 +246,25 @@ namespace Skillprint.UI
                 }
             }
 
-            // 2. Update Center Hub Visuals
+            // 2. Update VectorMesh Visuals
+            var meshTransform = transform.Find("VectorMesh");
+            if (meshTransform != null)
+            {
+                var meshRect = meshTransform.GetComponent<RectTransform>();
+                meshRect.anchorMin = Vector2.zero;
+                meshRect.anchorMax = Vector2.one;
+                meshRect.pivot = new Vector2(0.5f, 0.5f);
+                meshRect.anchoredPosition = Vector2.zero;
+                meshRect.sizeDelta = Vector2.zero;
+                
+                var meshComponent = meshTransform.GetComponent<SkillprintGraphMesh>();
+                if (meshComponent != null)
+                {
+                    meshComponent.SetAllDirty();
+                }
+            }
+
+            // 3. Update Center Hub Visuals
             var hubTransform = transform.Find("CenterHub");
             if (hubTransform != null)
             {
@@ -263,7 +296,7 @@ namespace Skillprint.UI
                 }
             }
 
-            // 3. Update Node Visuals
+            // 4. Update Node Visuals
             if (_nodesContainer != null)
             {
                 for (int i = 0; i < skills.Count; i++)
@@ -277,16 +310,13 @@ namespace Skillprint.UI
             }
         }
 
-        protected override void OnRectTransformDimensionsChange()
+        private void OnRectTransformDimensionsChange()
         {
-            base.OnRectTransformDimensionsChange();
-            RebuildChildren();
+            Refresh();
         }
 
-        protected override void Reset()
+        private void Reset()
         {
-            base.Reset();
-
             graphScale = 1f;
             outerRadius = 200f;
             innerRadius = 50f;
@@ -404,8 +434,8 @@ namespace Skillprint.UI
             // Destroy unused child objects
             foreach (var child in existingChildren)
             {
-                // Prevent destroying the CenterHub or GraphBackground if they got swept up in cleanup
-                if (child.name == "CenterHub" || child.name == "GraphBackground") continue;
+                // Prevent destroying the CenterHub or GraphBackground or VectorMesh if they got swept up in cleanup
+                if (child.name == "CenterHub" || child.name == "GraphBackground" || child.name == "VectorMesh") continue;
 
                 if (Application.isPlaying)
                 {
@@ -431,7 +461,6 @@ namespace Skillprint.UI
                     bgGo = new GameObject("GraphBackground", typeof(RectTransform), typeof(Image));
                     bgGo.transform.SetParent(transform, false);
                 }
-                bgGo.transform.SetAsFirstSibling();
 
                 var bgRect = bgGo.GetComponent<RectTransform>();
                 bgRect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -462,6 +491,26 @@ namespace Skillprint.UI
                 }
             }
 
+            // Find or create VectorMesh
+            var meshTransform = transform.Find("VectorMesh");
+            GameObject meshGo;
+            if (meshTransform != null)
+            {
+                meshGo = meshTransform.gameObject;
+            }
+            else
+            {
+                meshGo = new GameObject("VectorMesh", typeof(RectTransform), typeof(SkillprintGraphMesh));
+                meshGo.transform.SetParent(transform, false);
+            }
+
+            var meshRect = meshGo.GetComponent<RectTransform>();
+            meshRect.anchorMin = Vector2.zero;
+            meshRect.anchorMax = Vector2.one;
+            meshRect.pivot = new Vector2(0.5f, 0.5f);
+            meshRect.anchoredPosition = Vector2.zero;
+            meshRect.sizeDelta = Vector2.zero;
+
             // Find or create CenterHub
             var hubTransform = transform.Find("CenterHub");
             GameObject hubGo;
@@ -474,7 +523,6 @@ namespace Skillprint.UI
                 hubGo = new GameObject("CenterHub", typeof(RectTransform), typeof(Image));
                 hubGo.transform.SetParent(transform, false);
             }
-            hubGo.transform.SetAsLastSibling();
 
             var hubRect = hubGo.GetComponent<RectTransform>();
             hubRect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -513,8 +561,15 @@ namespace Skillprint.UI
             logoImage.sprite = centerLogoSprite;
             logoImage.color = centerLogoSprite != null ? Color.white : new Color(0, 0, 0, 0);
 
-            // Ensure nodes container sits on top of background and hub
-            _nodesContainer.SetAsLastSibling();
+            // Set correct sibling hierarchy order to enforce draw order:
+            // 1. Background (at the bottom)
+            // 2. VectorMesh (in the middle)
+            // 3. CenterHub (on top of vector mesh)
+            // 4. NodesContainer (on top of everything)
+            if (bgGo != null) bgGo.transform.SetSiblingIndex(0);
+            meshGo.transform.SetSiblingIndex(1);
+            hubGo.transform.SetSiblingIndex(2);
+            _nodesContainer.SetSiblingIndex(3);
         }
 
         public float GetNodeAngle(int index)
@@ -632,11 +687,8 @@ namespace Skillprint.UI
             }
         }
 
-        protected override void OnPopulateMesh(VertexHelper vh)
+        public void DrawMeshGeometry(VertexHelper vh)
         {
-            vh.Clear();
-            EnsureTextures();
-
             // Draw outer and inner rings
             DrawRing(vh, outerRadius * graphScale, circleThickness * graphScale, outerCircleColor);
             DrawRing(vh, innerRadius * graphScale, circleThickness * graphScale, centerOutlineColor);
@@ -794,6 +846,46 @@ namespace Skillprint.UI
             var rect = rectTransform.rect;
             var pivot = rectTransform.pivot;
             return new Vector2(rect.width * (0.5f - pivot.x), rect.height * (0.5f - pivot.y));
+        }
+    }
+
+    [RequireComponent(typeof(CanvasRenderer))]
+    public class SkillprintGraphMesh : MaskableGraphic
+    {
+        private SkillprintGraphRenderer _parentRenderer;
+
+        private SkillprintGraphRenderer ParentRenderer
+        {
+            get
+            {
+                if (_parentRenderer == null)
+                {
+                    _parentRenderer = GetComponentInParent<SkillprintGraphRenderer>();
+                }
+                return _parentRenderer;
+            }
+        }
+
+        public override Texture mainTexture
+        {
+            get
+            {
+                if (ParentRenderer != null)
+                {
+                    ParentRenderer.EnsureTextures();
+                    return ParentRenderer.LineTexture;
+                }
+                return base.mainTexture;
+            }
+        }
+
+        protected override void OnPopulateMesh(VertexHelper vh)
+        {
+            vh.Clear();
+            if (ParentRenderer == null) return;
+
+            ParentRenderer.EnsureTextures();
+            ParentRenderer.DrawMeshGeometry(vh);
         }
     }
 }
