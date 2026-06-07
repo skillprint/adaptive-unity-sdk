@@ -779,6 +779,126 @@ namespace Skillprint.SDK
         }
 
         /// <summary>
+        /// Retrieves the mood visualization from the Skillprint API.
+        /// </summary>
+        public void GetMoodVisualization(string customPlayerId, Action<bool, string> callback)
+        {
+            StartCoroutine(GetMoodVisualizationCoroutine(customPlayerId, callback));
+        }
+
+        private IEnumerator GetMoodVisualizationCoroutine(string customPlayerId, Action<bool, string> callback)
+        {
+            string token = _currentUserToken;
+            if (string.IsNullOrEmpty(token))
+            {
+                bool tokenComplete = false;
+                yield return _apiClient.CreateOrGetUserToken(customPlayerId, (success, result) =>
+                {
+                    if (success)
+                    {
+                        token = result;
+                        _currentUserToken = result; // cache it
+                    }
+                    tokenComplete = true;
+                });
+
+                while (!tokenComplete)
+                {
+                    yield return null;
+                }
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Log("Failed to obtain user token for mood visualization retrieval.", LogLevel.Error);
+                callback(false, null);
+                yield break;
+            }
+
+            yield return _apiClient.GetMoodVisualization(token, callback);
+        }
+
+        /// <summary>
+        /// Retrieves the raw user profile JSON from the Skillprint API.
+        /// </summary>
+        public void GetUserProfileRaw(string customPlayerId, Action<bool, string> callback)
+        {
+            StartCoroutine(GetUserProfileRawCoroutine(customPlayerId, callback));
+        }
+
+        private IEnumerator GetUserProfileRawCoroutine(string customPlayerId, Action<bool, string> callback)
+        {
+            string token = _currentUserToken;
+            if (string.IsNullOrEmpty(token))
+            {
+                bool tokenComplete = false;
+                yield return _apiClient.CreateOrGetUserToken(customPlayerId, (success, result) =>
+                {
+                    if (success)
+                    {
+                        token = result;
+                        _currentUserToken = result; // cache it
+                    }
+                    tokenComplete = true;
+                });
+
+                while (!tokenComplete)
+                {
+                    yield return null;
+                }
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Log("Failed to obtain user token for raw profile retrieval.", LogLevel.Error);
+                callback(false, null);
+                yield break;
+            }
+
+            yield return _apiClient.GetUserProfile(token, callback);
+        }
+
+        /// <summary>
+        /// Retrieves the raw skill progression JSON from the Skillprint API.
+        /// </summary>
+        public void GetSkillProgressionRaw(string customPlayerId, Action<bool, string> callback)
+        {
+            StartCoroutine(GetSkillProgressionRawCoroutine(customPlayerId, callback));
+        }
+
+        private IEnumerator GetSkillProgressionRawCoroutine(string customPlayerId, Action<bool, string> callback)
+        {
+            string token = _currentUserToken;
+            if (string.IsNullOrEmpty(token))
+            {
+                bool tokenComplete = false;
+                yield return _apiClient.CreateOrGetUserToken(customPlayerId, (success, result) =>
+                {
+                    if (success)
+                    {
+                        token = result;
+                        _currentUserToken = result; // cache it
+                    }
+                    tokenComplete = true;
+                });
+
+                while (!tokenComplete)
+                {
+                    yield return null;
+                }
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Log("Failed to obtain user token for raw skill progression retrieval.", LogLevel.Error);
+                callback(false, null);
+                yield break;
+            }
+
+            yield return _apiClient.GetSkillProgression(token, callback);
+        }
+
+        /// <summary>
         /// Gets URL parameters for debugging purposes
         /// </summary>
         /// <returns>A string describing current URL parameters</returns>

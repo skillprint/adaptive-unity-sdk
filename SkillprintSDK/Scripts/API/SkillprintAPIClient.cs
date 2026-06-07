@@ -710,6 +710,48 @@ namespace Skillprint.SDK.API
             }
         }
 
+        /// <summary>
+        /// Retrieves the mood visualization information.
+        /// </summary>
+        public IEnumerator GetMoodVisualization(
+            string userToken,
+            Action<bool, string> callback
+        )
+        {
+            string url = _baseUrl + "/scoring/api/mood-visualization/";
+            _logger?.Invoke($"Getting mood visualization: GET {url}", SkillprintManager.LogLevel.Info);
+
+            using (UnityWebRequest webRequest = UnityWebRequest.Get(url))
+            {
+                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
+                webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
+                if (!string.IsNullOrEmpty(userToken))
+                {
+                    webRequest.SetRequestHeader("X-Auth-Token", "Token " + userToken);
+                }
+                webRequest.SetRequestHeader("Accept", "application/json");
+
+                yield return webRequest.SendWebRequest();
+
+                if (webRequest.result == UnityWebRequest.Result.Success)
+                {
+                    _logger?.Invoke(
+                        $"GetMoodVisualization successful. Response: {webRequest.downloadHandler.text}",
+                        SkillprintManager.LogLevel.Info
+                    );
+                    callback(true, webRequest.downloadHandler.text);
+                }
+                else
+                {
+                    _logger?.Invoke(
+                        $"GetMoodVisualization Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
+                        SkillprintManager.LogLevel.Error
+                    );
+                    callback(false, webRequest.error + " | " + webRequest.downloadHandler.text);
+                }
+            }
+        }
+
         [System.Serializable]
         public class CreateUserRequest
         {

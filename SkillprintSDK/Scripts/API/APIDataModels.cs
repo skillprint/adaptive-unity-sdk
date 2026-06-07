@@ -580,6 +580,7 @@ namespace Skillprint.SDK.API
     public class SkillProgressionResponse
     {
         public List<SkillProgressionItem> yearlySummary;
+        public SkillProgressionCurrentSession currentSession;
     }
 
     [System.Serializable]
@@ -587,5 +588,13 @@ namespace Skillprint.SDK.API
     {
         public string skill;
         public string mood;
+    }
+
+    [System.Serializable]
+    public class SkillProgressionCurrentSession
+    {
+        public string skill;
+        public string mood;
+        public string targetMood;
     }
 }

@@ -36,7 +36,7 @@ namespace Skillprint.SDK.UI
 
         [Header("Equidistant Spacing")]
         public bool spaceEquidistant = true;
-        public float equidistantStartAngle = 0f;
+        public float equidistantStartAngle = 180f;
 
         [Header("Colors")]
         public Color outerCircleColor = new Color(0.9f, 0.9f, 0.92f, 1f);
@@ -328,7 +328,7 @@ namespace Skillprint.SDK.UI
             connectToCenter = true;
             curveBendAngle = 30f;
             spaceEquidistant = true;
-            equidistantStartAngle = 0f;
+            equidistantStartAngle = 180f;
             labelOffset = 25f;
             labelWidth = 150f;
             labelFontSize = 14f;
@@ -360,18 +360,18 @@ namespace Skillprint.SDK.UI
 
             skills = new List<SkillNodeData>
             {
-                new SkillNodeData { skillName = "Innovate", angleDegrees = 195f, isActive = false, isPrimary = false },
+                new SkillNodeData { skillName = "Innovate", angleDegrees = 180f, isActive = false, isPrimary = false },
                 new SkillNodeData { skillName = "Relax", angleDegrees = 150f, isActive = true, isPrimary = false },
-                new SkillNodeData { skillName = "Focus", angleDegrees = 125f, isActive = true, isPrimary = true },
-                new SkillNodeData { skillName = "Collaborate", angleDegrees = 100f, isActive = false, isPrimary = false },
-                new SkillNodeData { skillName = "Problem Solving", angleDegrees = 85f, isActive = false, isPrimary = false },
-                new SkillNodeData { skillName = "Memory", angleDegrees = 70f, isActive = false, isPrimary = false },
-                new SkillNodeData { skillName = "Speed", angleDegrees = 50f, isActive = false, isPrimary = false },
-                new SkillNodeData { skillName = "Accuracy", angleDegrees = 35f, isActive = false, isPrimary = false },
-                new SkillNodeData { skillName = "Pattern Recognition", angleDegrees = 10f, isActive = false, isPrimary = false },
-                new SkillNodeData { skillName = "Spatial Awareness", angleDegrees = 345f, isActive = false, isPrimary = false },
-                new SkillNodeData { skillName = "Logic", angleDegrees = 320f, isActive = false, isPrimary = false },
-                new SkillNodeData { skillName = "Creativity", angleDegrees = 300f, isActive = false, isPrimary = false }
+                new SkillNodeData { skillName = "Focus", angleDegrees = 120f, isActive = true, isPrimary = true },
+                new SkillNodeData { skillName = "Collaborate", angleDegrees = 90f, isActive = false, isPrimary = false },
+                new SkillNodeData { skillName = "Problem Solving", angleDegrees = 60f, isActive = false, isPrimary = false },
+                new SkillNodeData { skillName = "Memory", angleDegrees = 30f, isActive = false, isPrimary = false },
+                new SkillNodeData { skillName = "Speed", angleDegrees = 0f, isActive = false, isPrimary = false },
+                new SkillNodeData { skillName = "Accuracy", angleDegrees = 330f, isActive = false, isPrimary = false },
+                new SkillNodeData { skillName = "Pattern Recognition", angleDegrees = 300f, isActive = false, isPrimary = false },
+                new SkillNodeData { skillName = "Spatial Awareness", angleDegrees = 270f, isActive = false, isPrimary = false },
+                new SkillNodeData { skillName = "Logic", angleDegrees = 240f, isActive = false, isPrimary = false },
+                new SkillNodeData { skillName = "Creativity", angleDegrees = 210f, isActive = false, isPrimary = false }
             };
 
             RebuildChildren();
@@ -576,7 +576,9 @@ namespace Skillprint.SDK.UI
         {
             if (spaceEquidistant && skills.Count > 0)
             {
-                return (index * (360f / skills.Count) + equidistantStartAngle) % 360f;
+                // Calculate clockwise angles starting from equidistantStartAngle to match clockwise layout order
+                float angle = (equidistantStartAngle - index * (360f / skills.Count)) % 360f;
+                return angle < 0 ? angle + 360f : angle;
             }
             return index >= 0 && index < skills.Count ? skills[index].angleDegrees : 0f;
         }
