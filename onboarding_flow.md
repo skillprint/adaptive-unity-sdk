@@ -3,7 +3,7 @@
 This document presents the visual design and structural flow of the self-service onboarding and integration process for game developers integrating the Skillprint SDK.
 
 The vector source file has been saved in the repository root at:
-[Skillprint_Onboarding_Flow.svg](file:///Users/jeremy/Documents/dubchuck/skillprint/adaptative-unity-sdk/Skillprint_Onboarding_Flow.svg)
+[Skillprint_Onboarding_Flow.svg](Skillprint_Onboarding_Flow.svg)
 
 > [!TIP]
 > You can import `Skillprint_Onboarding_Flow.svg` directly into **Figma** as editable vector groups, permitting easy scaling, text tweaks, and exporting to PNG/PDF.
