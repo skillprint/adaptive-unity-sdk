@@ -12,7 +12,7 @@ The vector source file has been saved in the repository root at:
 
 ## Onboarding & Integration Overview
 
-![Skillprint Onboarding Flow Diagram](/Users/jeremy/.gemini/antigravity-ide/brain/0acea2a3-12fb-41ef-951f-2de9fc8600f5/onboarding_flow_diagram_1780939559398.png)
+![Skillprint Onboarding Flow Diagram](docs/onboarding_flow_diagram.png)
 
 ---
 
