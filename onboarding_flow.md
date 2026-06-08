@@ -29,3 +29,6 @@ The vector source file has been saved in the repository root at:
 | **3. Live Adjustment Loop** | **A. Active Gameplay** | `SDK Telemetry` | As users play, the SDK automatically initiates sessions and transmits periodic visual screenshot chunks + event data to the API. |
 | | **B. real-time AI Analysis** | `Skillprint AI Engine` | **Developer Value-Add:** Gemini VLM analyzes visual game screens to evaluate cognitive engagement, mood response, and difficulty ratings in real-time, mapping behavior to cognitive profiles. |
 | | **C. Live Parameter Adjustments** | `Dynamic Mechanics` | The game client receives real-time parameter updates (`parameter_updates`) from the API, seamlessly dialing up/down challenge, speed, or help mechanisms. |
+| **4. Player Profile Visuals** | **7. Query Player Profile** | `Profile Client` | Fetch the player's aggregated cognitive profile data (skills, moods, and scores) via the Skillprint Profile API. |
+| | **8. Render Skillprint Graph** | `UI Component` | Bind data to the `SkillprintGraphRenderer` component to display a beautiful radial spider chart of the player's attributes. |
+| | **9. Surface Insights to Users** | `Player Value-Add` | Present cognitive traits directly to players, boosting self-discovery, long-term retention, and game loyalty. |
