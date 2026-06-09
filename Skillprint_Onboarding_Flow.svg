@@ -1,0 +1,360 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2100 900" width="100%" height="100%" style="background:#090D16; font-family: system-ui, -apple-system, sans-serif;">
+  <defs>
+    <!-- Drop Shadow Filter -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+    
+    <!-- Column Backdrop Glowing Gradients -->
+    <linearGradient id="portalGlow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#3B82F6" stop-opacity="0.0"/>
+    </linearGradient>
+    <linearGradient id="sdkGlow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#10B981" stop-opacity="0.0"/>
+    </linearGradient>
+    <linearGradient id="loopGlow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.0"/>
+    </linearGradient>
+    <linearGradient id="pinkGlow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#EC4899" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#EC4899" stop-opacity="0.0"/>
+    </linearGradient>
+
+    <!-- Card Background Gradient -->
+    <linearGradient id="cardGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#0B0F19"/>
+    </linearGradient>
+
+    <!-- Glowing Loop Path Gradient -->
+    <linearGradient id="loopPathGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="50%" stop-color="#EC4899"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+
+    <!-- Header Accent Gradient -->
+    <linearGradient id="headerGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="33%" stop-color="#10B981"/>
+      <stop offset="66%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#EC4899"/>
+    </linearGradient>
+    
+    <!-- Arrowhead Markers -->
+    <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#3B82F6"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#10B981"/>
+    </marker>
+    <marker id="arrow-purple" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#8B5CF6"/>
+    </marker>
+    <marker id="arrow-pink" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#EC4899"/>
+    </marker>
+    <marker id="arrow-gold" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#F59E0B"/>
+    </marker>
+  </defs>
+
+  <!-- Background Grid Pattern -->
+  <rect width="2100" height="900" fill="#070A13"/>
+  <g stroke="#1F2937" stroke-width="0.5" opacity="0.2">
+    <path d="M 0,100 L 2100,100 M 0,200 L 2100,200 M 0,300 L 2100,300 M 0,400 L 2100,400 M 0,500 L 2100,500 M 0,600 L 2100,600 M 0,700 L 2100,700 M 0,800 L 2100,800" />
+    <path d="M 200,0 L 200,900 M 400,0 L 400,900 M 600,0 L 600,900 M 800,0 L 800,900 M 1000,0 L 1000,900 M 1200,0 L 1200,900 M 1400,0 L 1400,900 M 1600,0 L 1600,900 M 1800,0 L 1800,900 M 2000,0 L 2000,900" />
+  </g>
+
+  <!-- Title & Branding -->
+  <g transform="translate(80, 50)">
+    <rect x="-4" y="-12" width="1940" height="4" fill="url(#headerGrad)"/>
+    <text x="0" y="24" font-size="28" font-weight="900" fill="#FFFFFF" letter-spacing="1">SKILLPRINT DEVELOPER PLATFORM &amp; PLAYER EXPERIENCE SYSTEM</text>
+    <text x="0" y="48" font-size="14" font-weight="500" fill="#94A3B8">Self-service developer setup, SDK integration, Gemini VLM adaptive loop, and player profile visualization</text>
+  </g>
+
+  <!-- Swimlanes / Columns Backdrops -->
+  <!-- Column 1: Portal -->
+  <g id="col-portal">
+    <rect x="80" y="140" width="420" height="680" rx="16" fill="url(#portalGlow)" stroke="#3B82F6" stroke-width="1.5" stroke-opacity="0.2"/>
+    <rect x="80" y="140" width="420" height="40" rx="16" fill="#3B82F6" fill-opacity="0.08" stroke="#3B82F6" stroke-width="1.5" stroke-opacity="0.2"/>
+    <text x="290" y="166" font-size="13" font-weight="bold" fill="#3B82F6" letter-spacing="2" text-anchor="middle">1. SELF-SERVICE ONBOARDING</text>
+  </g>
+
+  <!-- Column 2: SDK -->
+  <g id="col-sdk">
+    <rect x="540" y="140" width="420" height="680" rx="16" fill="url(#sdkGlow)" stroke="#10B981" stroke-width="1.5" stroke-opacity="0.2"/>
+    <rect x="540" y="140" width="420" height="40" rx="16" fill="#10B981" fill-opacity="0.08" stroke="#10B981" stroke-width="1.5" stroke-opacity="0.2"/>
+    <text x="750" y="166" font-size="13" font-weight="bold" fill="#10B981" letter-spacing="2" text-anchor="middle">2. SDK INTEGRATION</text>
+  </g>
+
+  <!-- Column 3: Live Feedback Loop -->
+  <g id="col-loop">
+    <rect x="1000" y="140" width="480" height="680" rx="16" fill="url(#loopGlow)" stroke="#8B5CF6" stroke-width="1.5" stroke-opacity="0.2"/>
+    <rect x="1000" y="140" width="480" height="40" rx="16" fill="#8B5CF6" fill-opacity="0.08" stroke="#8B5CF6" stroke-width="1.5" stroke-opacity="0.2"/>
+    <text x="1240" y="166" font-size="13" font-weight="bold" fill="#8B5CF6" letter-spacing="2" text-anchor="middle">3. ADAPTIVE LOOP</text>
+  </g>
+
+  <!-- Column 4: User Visualization -->
+  <g id="col-visual">
+    <rect x="1520" y="140" width="500" height="680" rx="16" fill="url(#pinkGlow)" stroke="#EC4899" stroke-width="1.5" stroke-opacity="0.2"/>
+    <rect x="1520" y="140" width="500" height="40" rx="16" fill="#EC4899" fill-opacity="0.08" stroke="#EC4899" stroke-width="1.5" stroke-opacity="0.2"/>
+    <text x="1770" y="166" font-size="13" font-weight="bold" fill="#EC4899" letter-spacing="2" text-anchor="middle">4. PLAYER PROFILE VISUALS</text>
+  </g>
+
+  <!-- CONNECTING FLOW ARROWS BETWEEN COLUMNS -->
+  <!-- Onboarding (Col 1) to SDK Setup (Col 2) -->
+  <path d="M 460,595 C 520,595 520,250 570,250" fill="none" stroke="#3B82F6" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-blue)"/>
+  <rect x="470" y="405" width="90" height="30" rx="6" fill="#0F172A" stroke="#3B82F6" stroke-opacity="0.3" stroke-width="1"/>
+  <text x="515" y="424" font-size="10" font-weight="bold" fill="#3B82F6" text-anchor="middle">API Credentials</text>
+
+  <!-- SDK Setup (Col 2) to Real-Time Loop (Col 3) -->
+  <path d="M 920,595 C 980,595 980,250 1060,250" fill="none" stroke="#10B981" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-green)"/>
+  <rect x="940" y="405" width="80" height="30" rx="6" fill="#0F172A" stroke="#10B981" stroke-opacity="0.3" stroke-width="1"/>
+  <text x="980" y="424" font-size="10" font-weight="bold" fill="#10B981" text-anchor="middle">Auto-Register</text>
+
+  <!-- Real-Time Loop (Col 3) to Player Profile (Col 4) -->
+  <path d="M 1410,415 C 1500,415 1500,250 1590,250" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-purple)"/>
+  <rect x="1450" y="325" width="80" height="30" rx="6" fill="#0F172A" stroke="#8B5CF6" stroke-opacity="0.3" stroke-width="1"/>
+  <text x="1490" y="344" font-size="10" font-weight="bold" fill="#8B5CF6" text-anchor="middle">Query API</text>
+
+
+  <!-- ==================== swimlane 1: DEVELOPER ONBOARDING ==================== -->
+  
+  <!-- Step 1 Card -->
+  <g id="step1" filter="url(#shadow)">
+    <rect x="120" y="200" width="340" height="130" rx="12" fill="url(#cardGrad)" stroke="#3B82F6" stroke-opacity="0.2" stroke-width="1.5"/>
+    <rect x="120" y="200" width="6" height="130" rx="2" fill="#3B82F6"/>
+    <!-- Icon: Portal Account -->
+    <circle cx="160" cy="265" r="20" fill="#3B82F6" fill-opacity="0.15"/>
+    <path d="M160 262 a 4 4 0 1 0 0 -8 a 4 4 0 0 0 0 8 z M150 272 c 0 -4.5 4.5 -5 10 -5 s 10 .5 10 5" stroke="#3B82F6" stroke-width="2" fill="none"/>
+    <!-- Text -->
+    <text x="200" y="235" font-size="14" font-weight="bold" fill="#FFFFFF">1. Register Account</text>
+    <text x="200" y="260" font-size="12" fill="#94A3B8">Sign up at the developer portal</text>
+    <text x="200" y="278" font-size="12" fill="#94A3B8">to access the dashboard and</text>
+    <text x="200" y="296" font-size="12" fill="#94A3B8">manage your game portfolios.</text>
+  </g>
+
+  <!-- Step 1 -> Step 2 Arrow -->
+  <path d="M 290,330 L 290,342" stroke="#3B82F6" stroke-width="2" marker-end="url(#arrow-blue)"/>
+
+  <!-- Step 2 Card -->
+  <g id="step2" filter="url(#shadow)">
+    <rect x="120" y="350" width="340" height="130" rx="12" fill="url(#cardGrad)" stroke="#3B82F6" stroke-opacity="0.2" stroke-width="1.5"/>
+    <rect x="120" y="350" width="6" height="130" rx="2" fill="#3B82F6"/>
+    <!-- Icon: Controller -->
+    <circle cx="160" cy="415" r="20" fill="#3B82F6" fill-opacity="0.15"/>
+    <path d="M 147,415 C 147,407 155,407 160,407 C 165,407 173,407 173,415 C 173,421 169,423 165,423 L 155,423 C 151,423 147,421 147,415 Z" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <circle cx="153" cy="415" r="1" fill="#3B82F6"/>
+    <circle cx="167" cy="415" r="1" fill="#3B82F6"/>
+    <path d="M 158,419 L 162,419" stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- Text -->
+    <text x="200" y="385" font-size="14" font-weight="bold" fill="#FFFFFF">2. Configure Game Profile</text>
+    <text x="200" y="410" font-size="12" fill="#94A3B8">Select targeted moods &amp; skills</text>
+    <text x="200" y="428" font-size="12" fill="#94A3B8">(e.g., Focus, Relax, Grit)</text>
+    <text x="200" y="446" font-size="12" fill="#94A3B8">to guide backend AI scoring.</text>
+  </g>
+
+  <!-- Step 2 -> Step 3 Arrow -->
+  <path d="M 290,480 L 290,492" stroke="#3B82F6" stroke-width="2" marker-end="url(#arrow-blue)"/>
+
+  <!-- Step 3 Card -->
+  <g id="step3" filter="url(#shadow)">
+    <rect x="120" y="500" width="340" height="130" rx="12" fill="url(#cardGrad)" stroke="#3B82F6" stroke-opacity="0.2" stroke-width="1.5"/>
+    <rect x="120" y="500" width="6" height="130" rx="2" fill="#3B82F6"/>
+    <!-- Icon: Key -->
+    <circle cx="160" cy="565" r="20" fill="#3B82F6" fill-opacity="0.15"/>
+    <circle cx="155" cy="560" r="5" stroke="#3B82F6" stroke-width="2" fill="none"/>
+    <path d="M 159,564 L 168,573 M 163,568 L 166,565 M 166,571 L 169,568" stroke="#3B82F6" stroke-width="2" stroke-linecap="round"/>
+    <!-- Text -->
+    <text x="200" y="535" font-size="14" font-weight="bold" fill="#FFFFFF">3. Generate API Key</text>
+    <text x="200" y="560" font-size="12" fill="#94A3B8">Acquire a secure credential key</text>
+    <text x="200" y="578" font-size="12" fill="#94A3B8">and game slug to connect your</text>
+    <text x="200" y="596" font-size="12" fill="#94A3B8">project with Skillprint APIs.</text>
+  </g>
+
+
+  <!-- ==================== swimlane 2: SDK INTEGRATION ==================== -->
+
+  <!-- Step 4 Card -->
+  <g id="step4" filter="url(#shadow)">
+    <rect x="580" y="200" width="340" height="130" rx="12" fill="url(#cardGrad)" stroke="#10B981" stroke-opacity="0.2" stroke-width="1.5"/>
+    <rect x="580" y="200" width="6" height="130" rx="2" fill="#10B981"/>
+    <!-- Icon: Package -->
+    <circle cx="620" cy="265" r="20" fill="#10B981" fill-opacity="0.15"/>
+    <path d="M 620,250 L 635,257 L 635,273 L 620,280 L 605,273 L 605,257 Z M 605,257 L 620,265 L 635,257 M 620,265 L 620,280" stroke="#10B981" stroke-width="2" fill="none"/>
+    <!-- Text -->
+    <text x="660" y="235" font-size="14" font-weight="bold" fill="#FFFFFF">4. Download &amp; Install SDK</text>
+    <text x="660" y="260" font-size="12" fill="#94A3B8">Import the Unity SDK package</text>
+    <text x="660" y="278" font-size="12" fill="#94A3B8">(UPM) or Cocos npm package</text>
+    <text x="660" y="296" font-size="12" fill="#94A3B8">directly into your codebase.</text>
+  </g>
+
+  <!-- Step 4 -> Step 5 Arrow -->
+  <path d="M 750,330 L 750,342" stroke="#10B981" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+  <!-- Step 5 Card -->
+  <g id="step5" filter="url(#shadow)">
+    <rect x="580" y="350" width="340" height="130" rx="12" fill="url(#cardGrad)" stroke="#10B981" stroke-opacity="0.2" stroke-width="1.5"/>
+    <rect x="580" y="350" width="6" height="130" rx="2" fill="#10B981"/>
+    <!-- Icon: Gear -->
+    <circle cx="620" cy="415" r="20" fill="#10B981" fill-opacity="0.15"/>
+    <circle cx="620" cy="415" r="6" stroke="#10B981" stroke-width="2" fill="none"/>
+    <path d="M 620,405 v 3 M 620,422 v 3 M 610,415 h 3 M 627,415 h 3" stroke="#10B981" stroke-width="2" stroke-linecap="round"/>
+    <!-- Text -->
+    <text x="660" y="385" font-size="14" font-weight="bold" fill="#FFFFFF">5. Configure Config Asset</text>
+    <text x="660" y="410" font-size="12" fill="#94A3B8">Apply API Key, Game Name,</text>
+    <text x="660" y="428" font-size="12" fill="#94A3B8">and Base URL inside the</text>
+    <text x="660" y="446" font-size="12" fill="#94A3B8">SkillprintConfig Inspector.</text>
+  </g>
+
+  <!-- Step 5 -> Step 6 Arrow -->
+  <path d="M 750,480 L 750,492" stroke="#10B981" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+  <!-- Step 6 Card -->
+  <g id="step6" filter="url(#shadow)">
+    <rect x="580" y="500" width="340" height="130" rx="12" fill="url(#cardGrad)" stroke="#10B981" stroke-opacity="0.2" stroke-width="1.5"/>
+    <rect x="580" y="500" width="6" height="130" rx="2" fill="#10B981"/>
+    <!-- Icon: Sliders -->
+    <circle cx="620" cy="565" r="20" fill="#10B981" fill-opacity="0.15"/>
+    <path d="M 608,559 h 24 M 608,571 h 24 M 615,555 v 8 M 625,567 v 8" stroke="#10B981" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <!-- Text -->
+    <text x="660" y="535" font-size="14" font-weight="bold" fill="#FFFFFF">6. Define Game Parameters</text>
+    <text x="660" y="560" font-size="12" fill="#94A3B8">Declare game variables (e.g. speed)</text>
+    <text x="660" y="578" font-size="12" fill="#94A3B8">with minimum, maximum, and</text>
+    <text x="660" y="596" font-size="12" fill="#94A3B8">default values for tuning.</text>
+  </g>
+
+
+  <!-- ==================== swimlane 3: REAL-TIME ADAPTIVE LOOP ==================== -->
+
+  <!-- Loop Card A (Active Gameplay) -->
+  <g id="loop-a" filter="url(#shadow)">
+    <rect x="1070" y="200" width="340" height="130" rx="12" fill="url(#cardGrad)" stroke="#8B5CF6" stroke-opacity="0.2" stroke-width="1.5"/>
+    <rect x="1070" y="200" width="6" height="130" rx="2" fill="#8B5CF6"/>
+    <!-- Icon: Screen / Monitor -->
+    <circle cx="1110" cy="265" r="20" fill="#8B5CF6" fill-opacity="0.15"/>
+    <rect x="1095" y="255" width="30" height="18" rx="2" stroke="#8B5CF6" stroke-width="2" fill="none"/>
+    <path d="M 1105,273 L 1102,279 L 1118,279 L 1115,273" stroke="#8B5CF6" stroke-width="2" stroke-linejoin="round" fill="none"/>
+    <!-- Text -->
+    <text x="1150" y="235" font-size="14" font-weight="bold" fill="#FFFFFF">A. Active Gameplay &amp; SDK</text>
+    <text x="1150" y="260" font-size="12" fill="#94A3B8">SDK tracks player state and</text>
+    <text x="1150" y="278" font-size="12" fill="#94A3B8">transmits visual screen chunks</text>
+    <text x="1150" y="296" font-size="12" fill="#94A3B8">periodically during sessions.</text>
+  </g>
+
+  <!-- Loop Card A -> Loop Card B Arrow -->
+  <path d="M 1240,330 L 1240,342" stroke="#8B5CF6" stroke-width="2" marker-end="url(#arrow-purple)"/>
+  <!-- Arrow text -->
+  <text x="1250" y="340" font-size="9" font-weight="bold" fill="#8B5CF6">Screenshots &amp; Events</text>
+
+  <!-- Loop Card B (Skillprint AI Engine) -->
+  <g id="loop-b" filter="url(#shadow)">
+    <rect x="1070" y="350" width="340" height="130" rx="12" fill="url(#cardGrad)" stroke="#8B5CF6" stroke-opacity="0.2" stroke-width="1.5"/>
+    <rect x="1070" y="350" width="6" height="130" rx="2" fill="#8B5CF6"/>
+    <!-- Icon: Brain / Cloud -->
+    <circle cx="1110" cy="415" r="20" fill="#8B5CF6" fill-opacity="0.15"/>
+    <path d="M 1101,415 C 1096,415 1095,409 1100,403 C 1098,397 1104,393 1110,397 C 1116,393 1122,397 1120,403 C 1125,409 1124,415 1119,415 Z" stroke="#8B5CF6" stroke-width="2" fill="none"/>
+    <circle cx="1106" cy="407" r="1" fill="#8B5CF6"/>
+    <circle cx="1114" cy="407" r="1" fill="#8B5CF6"/>
+    <path d="M 1110,402 L 1110,415" stroke="#8B5CF6" stroke-width="1" stroke-dasharray="2 1"/>
+    <!-- Text -->
+    <text x="1150" y="385" font-size="14" font-weight="bold" fill="#FFFFFF">B. AI Evaluation (Value Add)</text>
+    <text x="1150" y="410" font-size="12" fill="#94A3B8">Gemini VLM maps screenshot</text>
+    <text x="1150" y="428" font-size="12" fill="#94A3B8">data to cognitive profiles</text>
+    <text x="1150" y="446" font-size="12" fill="#94A3B8">for real-time player analysis.</text>
+  </g>
+
+  <!-- Loop Card B -> Loop Card C Arrow -->
+  <path d="M 1240,480 L 1240,492" stroke="#8B5CF6" stroke-width="2" marker-end="url(#arrow-purple)"/>
+  <!-- Arrow text -->
+  <text x="1250" y="490" font-size="9" font-weight="bold" fill="#8B5CF6">Cognitive &amp; Mood Map</text>
+
+  <!-- Loop Card C (Real-Time Gameplay Adjustments) -->
+  <g id="loop-c" filter="url(#shadow)">
+    <rect x="1070" y="500" width="340" height="130" rx="12" fill="url(#cardGrad)" stroke="#8B5CF6" stroke-opacity="0.2" stroke-width="1.5"/>
+    <rect x="1070" y="500" width="6" height="130" rx="2" fill="#8B5CF6"/>
+    <!-- Icon: Refresh Circle -->
+    <circle cx="1110" cy="565" r="20" fill="#8B5CF6" fill-opacity="0.15"/>
+    <path d="M 1100,565 A 10,10 0 1,1 1110,575" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round"/>
+    <path d="M 1120,565 A 10,10 0 1,1 1110,555" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round"/>
+    <path d="M 1108,552 L 1113,555 L 1110,560 Z" fill="#8B5CF6"/>
+    <path d="M 1112,578 L 1107,575 L 1110,570 Z" fill="#8B5CF6"/>
+    <!-- Text -->
+    <text x="1150" y="535" font-size="14" font-weight="bold" fill="#FFFFFF">C. Dynamic Parameter Tuning</text>
+    <text x="1150" y="560" font-size="12" fill="#94A3B8">Game receives parameters</text>
+    <text x="1150" y="578" font-size="12" fill="#94A3B8">updates and scales mechanics</text>
+    <text x="1150" y="596" font-size="12" fill="#94A3B8">to keep player in perfect flow.</text>
+  </g>
+
+  <!-- Circular Loop Path: Card C back to Card A -->
+  <path d="M 1410,565 C 1485,565 1485,265 1420,265" fill="none" stroke="url(#loopPathGrad)" stroke-width="3" stroke-dasharray="6 4" marker-end="url(#arrow-gold)"/>
+  <!-- Label on Loop -->
+  <rect x="1440" y="405" width="22" height="120" rx="4" fill="#0F172A" stroke="#F59E0B" stroke-opacity="0.3" stroke-width="1"/>
+  <text x="1454" y="465" font-size="9" font-weight="bold" fill="#F59E0B" text-anchor="middle" transform="rotate(90 1454 465)">ADAPTIVE ADJUSTMENT LOOP</text>
+
+
+  <!-- ==================== swimlane 4: USER VISUALIZATION ==================== -->
+
+  <!-- Step 7 Card -->
+  <g id="step7" filter="url(#shadow)">
+    <rect x="1600" y="200" width="340" height="130" rx="12" fill="url(#cardGrad)" stroke="#EC4899" stroke-opacity="0.2" stroke-width="1.5"/>
+    <rect x="1600" y="200" width="6" height="130" rx="2" fill="#EC4899"/>
+    <!-- Icon: Profile Query -->
+    <circle cx="1640" cy="265" r="20" fill="#EC4899" fill-opacity="0.15"/>
+    <circle cx="1636" cy="260" r="5" stroke="#EC4899" stroke-width="2" fill="none"/>
+    <path d="M 1640,264 L 1645,269" stroke="#EC4899" stroke-width="2" stroke-linecap="round"/>
+    <path d="M 1630,274 C 1630,271 1633,270 1636,270" stroke="#EC4899" stroke-width="2" stroke-linecap="round"/>
+    <!-- Text -->
+    <text x="1680" y="235" font-size="14" font-weight="bold" fill="#FFFFFF">7. Query Player Profile</text>
+    <text x="1680" y="260" font-size="12" fill="#94A3B8">Fetch the player's aggregated</text>
+    <text x="1680" y="278" font-size="12" fill="#94A3B8">cognitive profile data (skills &amp;</text>
+    <text x="1680" y="296" font-size="12" fill="#94A3B8">moods) via the Profile API.</text>
+  </g>
+
+  <!-- Step 7 -> Step 8 Arrow -->
+  <path d="M 1770,330 L 1770,342" stroke="#EC4899" stroke-width="2" marker-end="url(#arrow-pink)"/>
+
+  <!-- Step 8 Card -->
+  <g id="step8" filter="url(#shadow)">
+    <rect x="1600" y="350" width="340" height="130" rx="12" fill="url(#cardGrad)" stroke="#EC4899" stroke-opacity="0.2" stroke-width="1.5"/>
+    <rect x="1600" y="350" width="6" height="130" rx="2" fill="#EC4899"/>
+    <!-- Icon: Radial Graph -->
+    <circle cx="1640" cy="415" r="20" fill="#EC4899" fill-opacity="0.15"/>
+    <path d="M 1640,403 L 1652,411 L 1647,424 L 1633,424 L 1628,411 Z" stroke="#EC4899" stroke-width="1.5" fill="none"/>
+    <path d="M 1640,415 L 1640,403 M 1640,415 L 1652,411 M 1640,415 L 1647,424 M 1640,415 L 1633,424 M 1640,415 L 1628,411" stroke="#EC4899" stroke-width="1" opacity="0.5"/>
+    <!-- Text -->
+    <text x="1680" y="385" font-size="14" font-weight="bold" fill="#FFFFFF">8. Render Skillprint Graph</text>
+    <text x="1680" y="410" font-size="12" fill="#94A3B8">Bind data to the UI Component</text>
+    <text x="1680" y="428" font-size="12" fill="#94A3B8">to render a beautiful radial spider</text>
+    <text x="1680" y="446" font-size="12" fill="#94A3B8">graphic of the player's profile.</text>
+  </g>
+
+  <!-- Step 8 -> Step 9 Arrow -->
+  <path d="M 1770,480 L 1770,492" stroke="#EC4899" stroke-width="2" marker-end="url(#arrow-pink)"/>
+
+  <!-- Step 9 Card -->
+  <g id="step9" filter="url(#shadow)">
+    <rect x="1600" y="500" width="340" height="130" rx="12" fill="url(#cardGrad)" stroke="#EC4899" stroke-opacity="0.2" stroke-width="1.5"/>
+    <rect x="1600" y="500" width="6" height="130" rx="2" fill="#EC4899"/>
+    <!-- Icon: Trophy -->
+    <circle cx="1640" cy="565" r="20" fill="#EC4899" fill-opacity="0.15"/>
+    <path d="M 1632,555 h 16 v 10 l -8,6 l -8,-6 z" stroke="#EC4899" stroke-width="2" stroke-linejoin="round" fill="none"/>
+    <circle cx="1640" cy="561" r="3" fill="#EC4899"/>
+    <!-- Text -->
+    <text x="1680" y="535" font-size="14" font-weight="bold" fill="#FFFFFF">9. Surface Insights to Users</text>
+    <text x="1680" y="560" font-size="12" fill="#94A3B8">Display cognitive traits to players,</text>
+    <text x="1680" y="578" font-size="12" fill="#94A3B8">improving player self-discovery,</text>
+    <text x="1680" y="596" font-size="12" fill="#94A3B8">long-term retention, &amp; loyalty.</text>
+  </g>
+
+
+  <!-- Footers & Meta Info -->
+  <g id="footer" transform="translate(80, 850)">
+    <text x="0" y="0" fill="#64748B" font-size="11">Skillprint Developer Onboarding Schema | Interchangeable 4-Pillar Vector Template</text>
+    <text x="1940" y="0" fill="#EC4899" font-size="11" text-anchor="end">Value Add: Surfacing cognitive traits (Focus, Relax, Grit) increases player self-understanding &amp; game loyalty</text>
+  </g>
+</svg>

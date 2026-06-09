@@ -20,6 +20,8 @@ namespace Skillprint.SDK.API
         private const string POLL_RESULTS_ENDPOINT = "/games/api/sessions/{sessionId}/";
         private const string CREATE_USER_ENDPOINT = "/partners/api/users/add/";
         private const string GET_USER_TOKEN_ENDPOINT = "/partners/api/users/auth/token/";
+        private const string GET_USER_PROFILE_ENDPOINT = "/scoring/api/profiles/";
+        private const string GET_SKILL_PROGRESSION_ENDPOINT = "/scoring/api/skill-progression/";
 
         // Request configuration
         private const int REQUEST_TIMEOUT_SECONDS = 10;
@@ -617,6 +619,132 @@ namespace Skillprint.SDK.API
                 {
                     _logger?.Invoke(
                         $"GetUserToken Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
+                        SkillprintManager.LogLevel.Error
+                    );
+                    callback(false, webRequest.error + " | " + webRequest.downloadHandler.text);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Retrieves the user profile information.
+        /// </summary>
+        public IEnumerator GetUserProfile(
+            string userToken,
+            Action<bool, string> callback
+        )
+        {
+            string url = _baseUrl + GET_USER_PROFILE_ENDPOINT;
+            _logger?.Invoke($"Getting user profile: GET {url}", SkillprintManager.LogLevel.Info);
+
+            using (UnityWebRequest webRequest = UnityWebRequest.Get(url))
+            {
+                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
+                webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
+                if (!string.IsNullOrEmpty(userToken))
+                {
+                    webRequest.SetRequestHeader("X-Auth-Token", "Token " + userToken);
+                }
+                webRequest.SetRequestHeader("Accept", "application/json");
+
+                yield return webRequest.SendWebRequest();
+
+                if (webRequest.result == UnityWebRequest.Result.Success)
+                {
+                    _logger?.Invoke(
+                        $"GetUserProfile successful. Response: {webRequest.downloadHandler.text}",
+                        SkillprintManager.LogLevel.Info
+                    );
+                    callback(true, webRequest.downloadHandler.text);
+                }
+                else
+                {
+                    _logger?.Invoke(
+                        $"GetUserProfile Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
+                        SkillprintManager.LogLevel.Error
+                    );
+                    callback(false, webRequest.error + " | " + webRequest.downloadHandler.text);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Retrieves the skill progression information.
+        /// </summary>
+        public IEnumerator GetSkillProgression(
+            string userToken,
+            Action<bool, string> callback
+        )
+        {
+            string url = _baseUrl + GET_SKILL_PROGRESSION_ENDPOINT;
+            _logger?.Invoke($"Getting skill progression: GET {url}", SkillprintManager.LogLevel.Info);
+
+            using (UnityWebRequest webRequest = UnityWebRequest.Get(url))
+            {
+                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
+                webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
+                if (!string.IsNullOrEmpty(userToken))
+                {
+                    webRequest.SetRequestHeader("X-Auth-Token", "Token " + userToken);
+                }
+                webRequest.SetRequestHeader("Accept", "application/json");
+
+                yield return webRequest.SendWebRequest();
+
+                if (webRequest.result == UnityWebRequest.Result.Success)
+                {
+                    _logger?.Invoke(
+                        $"GetSkillProgression successful. Response: {webRequest.downloadHandler.text}",
+                        SkillprintManager.LogLevel.Info
+                    );
+                    callback(true, webRequest.downloadHandler.text);
+                }
+                else
+                {
+                    _logger?.Invoke(
+                        $"GetSkillProgression Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
+                        SkillprintManager.LogLevel.Error
+                    );
+                    callback(false, webRequest.error + " | " + webRequest.downloadHandler.text);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Retrieves the mood visualization information.
+        /// </summary>
+        public IEnumerator GetMoodVisualization(
+            string userToken,
+            Action<bool, string> callback
+        )
+        {
+            string url = _baseUrl + "/scoring/api/mood-visualization/";
+            _logger?.Invoke($"Getting mood visualization: GET {url}", SkillprintManager.LogLevel.Info);
+
+            using (UnityWebRequest webRequest = UnityWebRequest.Get(url))
+            {
+                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
+                webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
+                if (!string.IsNullOrEmpty(userToken))
+                {
+                    webRequest.SetRequestHeader("X-Auth-Token", "Token " + userToken);
+                }
+                webRequest.SetRequestHeader("Accept", "application/json");
+
+                yield return webRequest.SendWebRequest();
+
+                if (webRequest.result == UnityWebRequest.Result.Success)
+                {
+                    _logger?.Invoke(
+                        $"GetMoodVisualization successful. Response: {webRequest.downloadHandler.text}",
+                        SkillprintManager.LogLevel.Info
+                    );
+                    callback(true, webRequest.downloadHandler.text);
+                }
+                else
+                {
+                    _logger?.Invoke(
+                        $"GetMoodVisualization Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
                         SkillprintManager.LogLevel.Error
                     );
                     callback(false, webRequest.error + " | " + webRequest.downloadHandler.text);

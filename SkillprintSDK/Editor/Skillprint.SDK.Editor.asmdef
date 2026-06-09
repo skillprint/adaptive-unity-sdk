@@ -1,11 +1,12 @@
 {
-    "name": "Skillprint.SDK",
-    "rootNamespace": "Skillprint.SDK",
+    "name": "Skillprint.SDK.Editor",
+    "rootNamespace": "Skillprint.SDK.Editor",
     "references": [
-        "Unity.TextMeshPro",
-        "UnityEngine.UI"
+        "Skillprint.SDK"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

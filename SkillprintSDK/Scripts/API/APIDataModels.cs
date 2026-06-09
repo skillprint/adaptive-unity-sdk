@@ -547,4 +547,54 @@ namespace Skillprint.SDK.API
             return valueStr;
         }
     }
+
+    // --- User Profile & Progression Models ---
+
+    [System.Serializable]
+    public class UserProfileResponse
+    {
+        public List<UserProfileResult> results;
+    }
+
+    [System.Serializable]
+    public class UserProfileResult
+    {
+        public int id;
+        public int totalSessions;
+        public string totalTimePlayed;
+        public float avgFlowScore;
+        public float flowConfidence;
+        public List<FlowScoreEntry> flowScoreHistory;
+    }
+
+    [System.Serializable]
+    public class FlowScoreEntry
+    {
+        public float score;
+        public string timestamp;
+        public float confidence;
+        public string targetMood;
+    }
+
+    [System.Serializable]
+    public class SkillProgressionResponse
+    {
+        public List<SkillProgressionItem> yearlySummary;
+        public SkillProgressionCurrentSession currentSession;
+    }
+
+    [System.Serializable]
+    public class SkillProgressionItem
+    {
+        public string skill;
+        public string mood;
+    }
+
+    [System.Serializable]
+    public class SkillProgressionCurrentSession
+    {
+        public string skill;
+        public string mood;
+        public string targetMood;
+    }
 }
