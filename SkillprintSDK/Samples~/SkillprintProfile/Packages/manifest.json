@@ -1,7 +1,6 @@
 {
   "dependencies": {
-    "co.skillprint.sdk": "https://github.com/skillprint/adaptative-unity-sdk.git?path=SkillprintSDK",
-    "com.unity.textmeshpro": "3.0.6",
+    "co.skillprint.sdk": "https://github.com/skillprint/adaptative-unity-sdk.git?path=SkillprintSDK#skillprint-profile-graph",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.2d.tilemap": "1.0.0",
     "com.unity.ads": "4.16.4",

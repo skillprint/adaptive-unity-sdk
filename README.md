@@ -181,6 +181,8 @@ This sends any remaining queued screenshots, signals the platform that the sessi
 
 The Skillprint Unity SDK includes a modular circular profile graph component (`SkillprintGraphRenderer`) and a test harness widget (`SkillprintProfileHarness`) to retrieve player profile and progression data and visualize it dynamically in your UI.
 
+> 💡 **Quick Start (Recommended):** A preconfigured prefab and complete integration sample are available in the [SkillprintProfile Sample directory](SkillprintSDK/Samples~/SkillprintProfile) (see its dedicated [README.md](SkillprintSDK/Samples~/SkillprintProfile/README.md) for step-by-step setup guides).
+
 The circular profile graph displays:
 - **Moods:** `Innovate`, `Relax`, `Focus`, and `Collaborate`.
 - **Skills:** `Problem Solving`, `Memory`, `Speed`, `Accuracy`, `Pattern Recognition`, `Spatial Awareness`, `Logic`, and `Creativity`.

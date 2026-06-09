@@ -105,14 +105,17 @@ namespace Skillprint.SDK.API
         /// <summary>
         /// Extracts Skillprint-specific parameters from URL
         /// </summary>
-        /// <returns>A tuple containing (targetMood, playerId)</returns>
-        public static (string targetMood, string playerId) GetSkillprintUrlParameters()
+        /// <returns>A tuple containing (targetMood, playerId, userToken)</returns>
+        public static (string targetMood, string playerId, string userToken) GetSkillprintUrlParameters()
         {
             string targetMood = GetUrlParameter("mood") ?? GetUrlParameter("targetMood");
             string playerId =
                 GetUrlParameter("playerId")
                 ?? GetUrlParameter("player_id")
                 ?? GetUrlParameter("userId");
+            string userToken =
+                GetUrlParameter("userToken")
+                ?? GetUrlParameter("user_token");
 
             // Set this variables in the PlayerPrefs for later use
             if (!string.IsNullOrEmpty(targetMood))
@@ -123,8 +126,12 @@ namespace Skillprint.SDK.API
             {
                 PlayerPrefs.SetString("SkillprintPlayerId", playerId);
             }
+            if (!string.IsNullOrEmpty(userToken))
+            {
+                PlayerPrefs.SetString("SkillprintUserToken", userToken);
+            }
 
-            return (targetMood, playerId);
+            return (targetMood, playerId, userToken);
         }
 
         /// <summary>
@@ -169,6 +176,7 @@ namespace Skillprint.SDK.API
 
             string targetMood = overrideMood;
             string playerId = overridePlayerId;
+            string userToken = null;
 
             // Only try to get URL parameters if not overridden and on WebGL
             if (string.IsNullOrEmpty(targetMood) || string.IsNullOrEmpty(playerId))
@@ -191,8 +199,15 @@ namespace Skillprint.SDK.API
                             : fallbackPlayerId;
                     }
 
+                    userToken = urlParams.userToken;
+
+                    if (!string.IsNullOrEmpty(userToken))
+                    {
+                        manager.CurrentUserToken = userToken;
+                    }
+
                     manager.Log(
-                        $"WebGL URL Parameters - Mood: '{targetMood}', Player ID: '{playerId}'",
+                        $"WebGL URL Parameters - Mood: '{targetMood}', Player ID: '{playerId}', User Token: '{(string.IsNullOrEmpty(userToken) ? "none" : "[REDACTED]")}'",
                         SkillprintManager.LogLevel.Info
                     );
                 }

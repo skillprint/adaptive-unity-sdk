@@ -14,6 +14,12 @@ namespace Skillprint.SDK
         [Tooltip("Assign your SkillprintConfig ScriptableObject here.")]
         public SkillprintConfig config;
 
+        public string CurrentUserToken
+        {
+            get => _currentUserToken;
+            set => _currentUserToken = value;
+        }
+
         private string _currentSessionId;
         private bool _isSessionActive = false;
         private string _currentUserToken = null;
@@ -48,6 +54,16 @@ namespace Skillprint.SDK
                 );
                 Destroy(gameObject);
             }
+        }
+
+        /// <summary>
+        /// Public initialization method to allow dynamic creation and configuration of the manager.
+        /// </summary>
+        public void Initialize(SkillprintConfig config)
+        {
+            this.config = config;
+            enabled = true;
+            InitializeSDK();
         }
 
         private void InitializeSDK()
@@ -912,7 +928,7 @@ namespace Skillprint.SDK
             string currentUrl = WebGLUrlParameterExtractor.GetCurrentUrl();
             var urlparams = WebGLUrlParameterExtractor.GetSkillprintUrlParameters();
 
-            return $"Current URL: {currentUrl}\nMood Parameter: '{urlparams.targetMood ?? "not found"}'\nPlayer ID Parameter: '{urlparams.playerId ?? "not found"}'";
+            return $"Current URL: {currentUrl}\nMood Parameter: '{urlparams.targetMood ?? "not found"}'\nPlayer ID Parameter: '{urlparams.playerId ?? "not found"}'\nUser Token Parameter: '{(string.IsNullOrEmpty(urlparams.userToken) ? "not found" : "[REDACTED]")}'";
         }
     }
 }

@@ -1,5 +1,15 @@
 {
   "dependencies": {
+    "co.skillprint.sdk": {
+      "version": "https://github.com/skillprint/adaptative-unity-sdk.git?path=SkillprintSDK#skillprint-profile-graph",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {
+        "com.unity.textmeshpro": "3.0.6",
+        "com.unity.ugui": "1.0.0"
+      },
+      "hash": "049d438829854847294fe321ac431d069ceae0e1"
+    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 0,
@@ -133,6 +143,14 @@
         "com.unity.ext.nunit": "2.0.3",
         "com.unity.modules.imgui": "1.0.0",
         "com.unity.modules.jsonserialize": "1.0.0"
+      }
+    },
+    "com.unity.textmeshpro": {
+      "version": "5.0.0",
+      "depth": 1,
+      "source": "builtin",
+      "dependencies": {
+        "com.unity.ugui": "2.0.0"
       }
     },
     "com.unity.timeline": {

@@ -22,11 +22,20 @@ namespace Skillprint.SDK.UI
         [Tooltip("The partner's player ID to fetch profile data for.")]
         public string customPlayerId = "player01@demo.skillprint.co";
 
+        [Tooltip("Optional: A direct user token to fetch profile data for. If set, bypasses Player ID exchange.")]
+        public string customUserToken = "";
+
         [Tooltip("If true, also retrieves and populates cognitive skills progression (e.g. Memory, Speed) alongside the profile mood history.")]
         public bool fetchSkillProgression = true;
 
+        [Header("Optional Auto-Initialization")]
+        [Tooltip("The SkillprintConfig scriptable object to initialize the SkillprintManager with if it is missing from the scene.")]
+        public SkillprintConfig config;
+
         private void Start()
         {
+            InitializeManagerIfNeeded();
+
             if (loadProfileButton != null)
             {
                 loadProfileButton.onClick.AddListener(LoadProfile);
@@ -39,6 +48,31 @@ namespace Skillprint.SDK.UI
             if (graphRenderer == null)
             {
                 graphRenderer = GetComponent<SkillprintGraphRenderer>();
+            }
+        }
+
+        private void InitializeManagerIfNeeded()
+        {
+            if (Skillprint.SDK.SkillprintManager.Instance == null)
+            {
+                // Try to find one in the scene first
+                var existingManager = FindObjectOfType<Skillprint.SDK.SkillprintManager>();
+                if (existingManager != null)
+                {
+                    return;
+                }
+
+                if (config != null)
+                {
+                    Debug.Log("[SkillprintProfileHarness] SkillprintManager not found in scene. Creating one dynamically using assigned Config...");
+                    GameObject managerGo = new GameObject("SkillprintManager");
+                    var newManager = managerGo.AddComponent<Skillprint.SDK.SkillprintManager>();
+                    newManager.Initialize(config);
+                }
+                else
+                {
+                    Debug.LogWarning("[SkillprintProfileHarness] SkillprintManager not found and no SkillprintConfig assigned in Inspector. You must have a SkillprintManager in the scene or assign a Config for auto-initialization.", this);
+                }
             }
         }
 
@@ -59,9 +93,38 @@ namespace Skillprint.SDK.UI
                 return;
             }
 
-            if (string.IsNullOrEmpty(customPlayerId))
+            // Resolve user token from config, query parameters, or existing cached token
+            string token = customUserToken;
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (string.IsNullOrEmpty(token))
             {
-                Debug.LogError("[SkillprintProfileHarness] Custom Player ID cannot be empty.", this);
+                token = Skillprint.SDK.API.WebGLUrlParameterExtractor.GetUrlParameter("userToken");
+                if (string.IsNullOrEmpty(token))
+                {
+                    token = Skillprint.SDK.API.WebGLUrlParameterExtractor.GetUrlParameter("user_token");
+                }
+            }
+#endif
+
+            if (string.IsNullOrEmpty(token))
+            {
+                token = PlayerPrefs.GetString("SkillprintUserToken", string.Empty);
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                token = Skillprint.SDK.SkillprintManager.Instance.CurrentUserToken;
+            }
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                Skillprint.SDK.SkillprintManager.Instance.CurrentUserToken = token;
+            }
+
+            if (string.IsNullOrEmpty(token) && string.IsNullOrEmpty(customPlayerId))
+            {
+                Debug.LogError("[SkillprintProfileHarness] Both Custom Player ID and User Token are empty. Cannot fetch profile.", this);
                 return;
             }
 
@@ -70,7 +133,14 @@ namespace Skillprint.SDK.UI
                 loadProfileButton.interactable = false;
             }
 
-            Debug.Log($"[SkillprintProfileHarness] Fetching profile data for player: {customPlayerId}...");
+            if (!string.IsNullOrEmpty(token))
+            {
+                Debug.Log("[SkillprintProfileHarness] Fetching profile data using User Token...");
+            }
+            else
+            {
+                Debug.Log($"[SkillprintProfileHarness] Fetching profile data for player: {customPlayerId}...");
+            }
 
             var activeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             int pendingRequests = fetchSkillProgression ? 3 : 2;
