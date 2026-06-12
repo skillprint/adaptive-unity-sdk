@@ -2,14 +2,6 @@
 
 This document presents the visual design and structural flow of the self-service onboarding and integration process for game developers integrating the Skillprint SDK.
 
-The vector source file has been saved in the repository root at:
-[Skillprint_Onboarding_Flow.svg](Skillprint_Onboarding_Flow.svg)
-
-> [!TIP]
-> You can import `Skillprint_Onboarding_Flow.svg` directly into **Figma** as editable vector groups, permitting easy scaling, text tweaks, and exporting to PNG/PDF.
-
----
-
 ## Onboarding & Integration Overview
 
 ![Skillprint Onboarding Flow Diagram](docs/onboarding_flow_diagram.png)
