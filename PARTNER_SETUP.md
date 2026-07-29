@@ -134,7 +134,7 @@ Send the following to the partner:
 | API Key | `aBcDeFgH.xYz...` (from Step 2) | `SkillprintConfig` → Partner API Key |
 | Game Slug | `fruit-boom` (from Step 3) | `SkillprintConfig` → Game Name |
 | API Base URL | `https://api.skillprint.co` | `SkillprintConfig` → API Base URL (default) |
-| SDK Repo | `https://github.com/skillprint/adaptative-unity-sdk` | Unity Package Manager |
+| SDK Repo | `https://github.com/skillprint/adaptive-unity-sdk` | Unity Package Manager |
 
 ---
 
@@ -241,7 +241,7 @@ Here are your Skillprint integration credentials:
   API Base URL: https://api.skillprint.co
 
 SDK Installation (Unity Package Manager):
-  https://github.com/skillprint/adaptative-unity-sdk.git?path=SkillprintSDK
+  https://github.com/skillprint/adaptive-unity-sdk.git?path=SkillprintSDK
 
 Paste the API Key and Game Name into your SkillprintConfig asset
 in the Unity Inspector. The parameters you define in the config

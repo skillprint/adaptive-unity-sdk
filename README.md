@@ -5,7 +5,7 @@ Official Unity SDK for [Skillprint](https://www.skillprint.co) integration. Empo
 ## 📋 Requirements
 
 - Unity 2020.3 LTS or newer.
-- A Skillprint Partner API Key (obtain from the [Skillprint Partner Portal](https://www.skillprint.co)).
+- A Skillprint Partner API Key (obtain from the [Skillprint Partner Portal](https://www.skillprint.co/getting-started?interest=api)).
 - Your game's registered **Game Name** (slug) in the Skillprint platform.
 - An active internet connection for the game client during Skillprint-enabled sessions.
 
@@ -25,7 +25,7 @@ You can install the Skillprint SDK in your Unity project using one of the follow
 4. Select "**Add package from git URL...**".
 5. Enter the following URL (replace `vX.Y.Z` with the desired release tag, e.g., `v1.0.0`, or use `#main` for the latest from the main branch):
    ```
-   https://github.com/skillprint/skillprint-unity-sdk.git?path=/SkillprintSDK#vX.Y.Z
+   https://github.com/skillprint/adaptive-unity-sdk.git?path=SkillprintSDK#vX.Y.Z
    ```
 6. Click "Add". The package will be installed into your project's `Packages` directory.
 
@@ -154,6 +154,8 @@ SkillprintManager.Instance.StartGameSession("focus", "player-unique-id-123");
 | `curiosity` | Stimulate discovery and exploratory behavior |
 | `empathy` | Encourage perspective-taking and emotional engagement |
 | `awe` | Create moments of wonder and amazement |
+
+> 💡 **Note on Profile Graph Mindsets:** While starting a session uses the target moods listed above (like `creativity` or `relax`), the player's visual **User Profile Graph** displays aggregated mindsets (`Innovate`, `Relax`, `Focus`, and `Collaborate`). For example, gameplay during a session targeting `creativity` maps to the `Innovate` mindset on the profile graph.
 
 **Player Identity:**
 When you provide a `customPlayerId`, the SDK automatically handles user provisioning:
@@ -360,6 +362,16 @@ StopGameSession()
 
 ---
 
+## 🔒 Privacy & Data Telemetry
+
+To address common questions regarding player privacy, data transmission, and compliance:
+
+- **What is captured:** The SDK only captures gameplay screenshots at the configured interval during active game sessions, along with session metadata (such as partner player ID, game slug, active parameter values, and target mood).
+- **Sensitive Screens:** To protect player privacy, developers should invoke `PauseScreenshotTransmission()` when the player navigates to screens that may display sensitive input, text fields, or personal information (such as login panels, setting menus, or store/payment flows), and call `ResumeScreenshotTransmission()` when returning to gameplay.
+- **Where data goes:** Screenshots and session telemetry are transmitted securely via HTTPS to the Skillprint API endpoints (`https://api.skillprint.co`).
+
+---
+
 ## 🔑 API Endpoints
 
 The SDK communicates with the following Skillprint API endpoints:
@@ -482,7 +494,7 @@ SkillprintManager.Instance.RegisterParameterModifier<int>("aiAggressiveness", le
 ### How Parameters Work End-to-End
 
 1. **You define parameters** in `SkillprintConfig` with name, type, and valid range.
-2. **You register them on the Skillprint backend** (same name, type, and range) through your partner dashboard.
+2. **Parameters are auto-registered** on the Skillprint backend the first time a session is started. (Alternatively, you can manually pre-configure them via your partner dashboard to define custom LLM adjustment instructions).
 3. **You register modifier callbacks** in your game code via `RegisterParameterModifier<T>()`.
 4. **During a session**, Skillprint analyzes gameplay screenshots and determines optimal parameter values based on the target mood and player behavior.
 5. **The SDK polls for updates** and invokes your registered callbacks with the new values, automatically clamped to your defined min/max range.

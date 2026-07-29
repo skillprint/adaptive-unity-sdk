@@ -29,7 +29,7 @@ To use the Skillprint profile visualization in your own game:
 ### 1. Install the Skillprint SDK Package
 Make sure the Skillprint SDK is installed in your project. If you are importing via git, add the following dependency to your project's `Packages/manifest.json`:
 ```json
-"co.skillprint.sdk": "https://github.com/skillprint/adaptative-unity-sdk.git?path=SkillprintSDK"
+"co.skillprint.sdk": "https://github.com/skillprint/adaptive-unity-sdk.git?path=SkillprintSDK"
 ```
 
 ### 2. Set Up TextMeshPro
