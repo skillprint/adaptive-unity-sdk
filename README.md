@@ -175,6 +175,27 @@ This sends any remaining queued screenshots, signals the platform that the sessi
 
 > **Important:** Always call `StopGameSession()` when gameplay ends (e.g., level complete, game over, player quits). Without this call, the session will eventually time out on the server side, but final scoring may be delayed.
 
+### 4. Pause & Resume Screenshot Transmission
+
+You can temporarily pause and resume the capturing and transmission (uploading) of screenshots during a session. This is particularly useful to protect player privacy on sensitive screens (e.g. settings, store/purchases, account login, enter password) or to avoid wasting network bandwidth and processing when the game is paused or idle:
+
+```csharp
+// Pause screenshot capturing and uploading
+SkillprintManager.Instance.PauseScreenshotTransmission();
+
+// Check if transmission is currently paused
+bool isPaused = SkillprintManager.Instance.IsScreenshotTransmissionPaused;
+
+// Resume screenshot capturing and uploading
+SkillprintManager.Instance.ResumeScreenshotTransmission();
+```
+
+When paused:
+- No new screenshots will be captured.
+- No screenshot batches will be sent to the Skillprint API.
+- The session remains active on the backend, and parameter polling continues normally.
+- Once resumed, the SDK resumes the capture interval and transmission loops from where they left off.
+
 ---
 
 ## 📊 User Profile Graph (Visualization)
