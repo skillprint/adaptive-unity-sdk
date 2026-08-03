@@ -31,7 +31,7 @@ You can install the Skillprint SDK in your Unity project using one of the follow
 
 **B. Using `.unitypackage` File**
 
-1. Go to the [Releases page](https://github.com/skillprint/skillprint-unity-sdk/releases) of this repository.
+1. Go to the [Releases page](https://github.com/skillprint/adaptive-unity-sdk/releases) of this repository.
 2. Download the `SkillprintSDK_vX.Y.Z.unitypackage` file from the latest (or desired) release.
 3. Open your Unity project.
 4. Drag and drop the downloaded `.unitypackage` file into your Project window, or go to `Assets -> Import Package -> Custom Package...` and select the file.

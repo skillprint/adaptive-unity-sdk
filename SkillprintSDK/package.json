@@ -1,6 +1,6 @@
 {
   "name": "co.skillprint.sdk",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "displayName": "Skillprint SDK",
   "description": "Integrate your Unity game with Skillprint for dynamic gameplay adjustments.",
   "unity": "2020.3",
