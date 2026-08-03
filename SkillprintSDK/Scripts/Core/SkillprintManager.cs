@@ -22,6 +22,7 @@ namespace Skillprint.SDK
 
         private string _currentSessionId;
         private bool _isSessionActive = false;
+        private bool _isTransmissionPaused = false;
         private string _currentUserToken = null;
         private SkillprintAPIClient _apiClient;
         private ScreenshotUtility _screenshotUtility;
@@ -37,6 +38,35 @@ namespace Skillprint.SDK
         public string GetCurrentSessionId()
         {
             return _currentSessionId;
+        }
+
+        /// <summary>
+        /// Gets whether screenshot transmission is currently paused.
+        /// </summary>
+        public bool IsScreenshotTransmissionPaused => _isTransmissionPaused;
+
+        /// <summary>
+        /// Pauses the capturing and transmission of screenshots.
+        /// </summary>
+        public void PauseScreenshotTransmission()
+        {
+            if (!_isTransmissionPaused)
+            {
+                _isTransmissionPaused = true;
+                Log("Screenshot transmission paused.");
+            }
+        }
+
+        /// <summary>
+        /// Resumes the capturing and transmission of screenshots.
+        /// </summary>
+        public void ResumeScreenshotTransmission()
+        {
+            if (_isTransmissionPaused)
+            {
+                _isTransmissionPaused = false;
+                Log("Screenshot transmission resumed.");
+            }
         }
 
         void Awake()
@@ -269,6 +299,7 @@ namespace Skillprint.SDK
 
             _currentSessionId = Guid.NewGuid().ToString();
             _isSessionActive = true;
+            _isTransmissionPaused = false;
             Log(
                 $"Starting game session for {config.targetEnvironment} environment.",
                 LogLevel.Info
@@ -398,6 +429,8 @@ namespace Skillprint.SDK
                 yield return new WaitForSeconds(config.screenshotIntervalSeconds);
                 if (!_isSessionActive)
                     break; // Check again after wait
+                if (_isTransmissionPaused)
+                    continue;
 
                 yield return _screenshotUtility.CaptureScreenshot(
                     (texture) =>
@@ -430,7 +463,7 @@ namespace Skillprint.SDK
             while (_isSessionActive)
             {
                 yield return new WaitForSeconds(config.screenshotPostIntervalSeconds);
-                if (!_isSessionActive || _screenshotQueue.Count == 0)
+                if (!_isSessionActive || _screenshotQueue.Count == 0 || _isTransmissionPaused)
                     continue;
 
                 List<Texture2D> batchToPost = new List<Texture2D>();
