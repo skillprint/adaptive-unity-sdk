@@ -216,9 +216,15 @@ SkillprintManager.Instance.LogEvent(GameEvent.LEVEL_COMPLETE, new Dictionary<str
 
 **Two ways to use it**, matching skillprint-js-sdk exactly so events are read the same way regardless of platform:
 
-1. **The fixed `GameEvent` vocabulary** (`LEVEL_START`, `LEVEL_COMPLETE`, `LEVEL_QUIT`, `LEVEL_FAILED`, `LEVEL_RESTART`, `HINT`, `GENERIC_POSITIVE`, `GENERIC_NEGATIVE`) — recommended for most integrations. This exact set is what Skillprint's backend adaptation scoring already reads as a positive/negative signal, so events logged with it are automatically meaningful without any other configuration.
+1. **The fixed `GameEvent` vocabulary** — recommended for most integrations. Events logged with one of these names are automatically read as a clear positive or negative signal, with nothing else to configure:
 
-2. **A custom event name** (any string), via the `string` overload — for games with their own scoring configuration that want a richer, game-specific vocabulary:
+   | Event | Signal |
+   |---|---|
+   | `LEVEL_START`, `LEVEL_COMPLETE` | Positive |
+   | `LEVEL_QUIT`, `LEVEL_FAILED`, `LEVEL_RESTART`, `HINT` | Negative |
+   | `GENERIC_POSITIVE`, `GENERIC_NEGATIVE` | Use for anything else that's clearly good or bad for the player and doesn't fit the events above |
+
+2. **A custom event name** (any string), via the `string` overload — for a richer, game-specific vocabulary:
 
 ```csharp
 SkillprintManager.Instance.LogEvent("CLOCKWISE_TAP", new Dictionary<string, object> {
@@ -226,7 +232,7 @@ SkillprintManager.Instance.LogEvent("CLOCKWISE_TAP", new Dictionary<string, obje
 });
 ```
 
-There's no enum to register a custom name against — the backend's per-game telemetry schema is intentionally left unrestricted for this path, specifically so it can't drift out of sync with what your game actually ships. Custom events are picked up by Skillprint's LLM-based scoring as additional context alongside screenshots, but aren't guaranteed to map to any specific pre-built scoring logic — check with your Skillprint contact if you're building a game with a custom scoring configuration and want to make the most of a bespoke event vocabulary.
+Custom event names don't need to be registered in advance — send whatever your game already tracks. They're picked up by Skillprint's scoring as additional context alongside screenshots. If you want a custom event to map to a specific improvement in scoring accuracy for your game, talk to your Skillprint contact about setting up a custom scoring configuration.
 
 ---
 
