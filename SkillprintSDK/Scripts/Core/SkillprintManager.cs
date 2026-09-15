@@ -422,6 +422,65 @@ namespace Skillprint.SDK
             Log("Skillprint session stopped.");
         }
 
+        /// <summary>
+        /// Logs a discrete telemetry event alongside the screenshot loop --
+        /// optional and additive, doesn't replace or interact with it.
+        /// Mirrors skillprint-js-sdk's manager.logEvent: fire-and-forget (a
+        /// failed request is logged as a warning and never throws, so it
+        /// can't interrupt gameplay), and a no-op with a warning if called
+        /// with no active session.
+        /// </summary>
+        /// <param name="eventName">
+        /// Either one of the fixed GameEvent names (see the GameEvent
+        /// overload below) or a custom, game-specific event name -- there's
+        /// no enum to register a custom name against, matching the JS SDK.
+        /// </param>
+        /// <param name="data">Optional extra fields alongside the event name.</param>
+        public void LogEvent(string eventName, Dictionary<string, object> data = null)
+        {
+            if (!_isSessionActive || string.IsNullOrEmpty(_currentSessionId) || _apiClient == null)
+            {
+                Log("LogEvent called with no active session. Ignoring.", LogLevel.Warning);
+                return;
+            }
+
+            try
+            {
+                string eventJson = TelemetryEventJsonBuilder.Build(eventName, data);
+                StartCoroutine(
+                    _apiClient.LogTelemetryEvent(
+                        _currentSessionId,
+                        config.gameName,
+                        eventJson,
+                        (success, response) =>
+                        {
+                            if (!success)
+                            {
+                                Log(
+                                    $"Failed to log event '{eventName}': {response}",
+                                    LogLevel.Warning
+                                );
+                            }
+                        }
+                    )
+                );
+            }
+            catch (Exception ex)
+            {
+                Log($"Failed to log event '{eventName}': {ex.Message}", LogLevel.Warning);
+            }
+        }
+
+        /// <summary>
+        /// LogEvent overload for the fixed GameEvent vocabulary -- recommended
+        /// for most integrations, since this exact set is what the backend's
+        /// adaptation scoring already reads as a positive/negative signal.
+        /// </summary>
+        public void LogEvent(GameEvent gameEvent, Dictionary<string, object> data = null)
+        {
+            LogEvent(gameEvent.ToString(), data);
+        }
+
         private IEnumerator ScreenshotCaptureLoop()
         {
             while (_isSessionActive)

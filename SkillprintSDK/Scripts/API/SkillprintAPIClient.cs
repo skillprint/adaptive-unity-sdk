@@ -18,6 +18,7 @@ namespace Skillprint.SDK.API
         private const string START_SESSION_ENDPOINT = "/games/api/sessions/";
         private const string UPLOAD_SCREENSHOTS_ENDPOINT = "/games/api/record-session/{sessionId}/";
         private const string POLL_RESULTS_ENDPOINT = "/games/api/sessions/{sessionId}/";
+        private const string ADD_TELEMETRY_ENDPOINT = "/games/api/sessions/telemetry";
         private const string CREATE_USER_ENDPOINT = "/partners/api/users/add/";
         private const string GET_USER_TOKEN_ENDPOINT = "/partners/api/users/auth/token/";
         private const string GET_USER_PROFILE_ENDPOINT = "/scoring/api/profiles/";
@@ -325,6 +326,68 @@ namespace Skillprint.SDK.API
                     SkillprintManager.LogLevel.Error
                 );
                 callback(false, lastError);
+            }
+        }
+
+        /// <summary>
+        /// Appends a discrete telemetry event to an active session. Mirrors
+        /// skillprint-js-sdk's logTelemetryEvent: session_id and game_slug
+        /// go in the query string (not the body), and the event object is
+        /// wrapped in an outer {"event": ...} envelope -- confirmed against
+        /// marketplace's games/tests/test_sessions.py, which posts
+        /// {"event": {"a": 1, "timestamp": ...}} and asserts
+        /// session.telemetry becomes [{"a": 1, "timestamp": ...}]. Sending
+        /// the event unwrapped would store just its "event" field's string
+        /// value as the whole telemetry entry.
+        /// </summary>
+        /// <param name="eventJson">
+        /// The inner event object JSON (e.g. {"event":"LEVEL_START","level":3}),
+        /// built by TelemetryEventJsonBuilder.Build.
+        /// </param>
+        public IEnumerator LogTelemetryEvent(
+            string sessionId,
+            string gameSlug,
+            string eventJson,
+            Action<bool, string> callback
+        )
+        {
+            string url =
+                $"{_baseUrl}{ADD_TELEMETRY_ENDPOINT}"
+                + $"?session_id={UnityWebRequest.EscapeURL(sessionId)}"
+                + $"&game_slug={UnityWebRequest.EscapeURL(gameSlug)}";
+            string jsonBody = "{\"event\":" + eventJson + "}";
+            _logger?.Invoke(
+                $"Logging telemetry event: POST {url} body={jsonBody}",
+                SkillprintManager.LogLevel.Info
+            );
+
+            using (UnityWebRequest webRequest = new UnityWebRequest(url, "POST"))
+            {
+                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
+                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
+                webRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                webRequest.downloadHandler = new DownloadHandlerBuffer();
+                webRequest.SetRequestHeader("Content-Type", "application/json");
+                webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
+
+                yield return webRequest.SendWebRequest();
+
+                if (webRequest.result == UnityWebRequest.Result.Success)
+                {
+                    _logger?.Invoke(
+                        $"LogTelemetryEvent successful. Response: {webRequest.downloadHandler.text}",
+                        SkillprintManager.LogLevel.Info
+                    );
+                    callback(true, webRequest.downloadHandler.text);
+                }
+                else
+                {
+                    _logger?.Invoke(
+                        $"LogTelemetryEvent Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
+                        SkillprintManager.LogLevel.Warning
+                    );
+                    callback(false, webRequest.error + " | " + webRequest.downloadHandler.text);
+                }
             }
         }
 

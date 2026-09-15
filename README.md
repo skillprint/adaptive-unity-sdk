@@ -198,6 +198,42 @@ When paused:
 - The session remains active on the backend, and parameter polling continues normally.
 - Once resumed, the SDK resumes the capture interval and transmission loops from where they left off.
 
+### 5. Log Discrete Telemetry Events
+
+Screenshot capture is the SDK's primary telemetry mechanism and covers every game automatically. `LogEvent` is an **optional, additive** layer on top of it for games that want precise, low-latency event signals alongside the vision-based scoring — it doesn't replace or interact with the screenshot loop.
+
+```csharp
+using Skillprint.SDK;
+
+SkillprintManager.Instance.LogEvent(GameEvent.LEVEL_START);
+SkillprintManager.Instance.LogEvent(GameEvent.LEVEL_COMPLETE, new Dictionary<string, object> {
+    { "level", 3 },
+    { "score", 1200 },
+});
+```
+
+`LogEvent` is fire-and-forget: a failed request is logged as a warning and never throws, so it can never interrupt gameplay. Calling it with no active session is a no-op (also just a warning).
+
+**Two ways to use it**, matching skillprint-js-sdk exactly so events are read the same way regardless of platform:
+
+1. **The fixed `GameEvent` vocabulary** — recommended for most integrations. Events logged with one of these names are automatically read as a clear positive or negative signal, with nothing else to configure:
+
+   | Event | Signal |
+   |---|---|
+   | `LEVEL_START`, `LEVEL_COMPLETE` | Positive |
+   | `LEVEL_QUIT`, `LEVEL_FAILED`, `LEVEL_RESTART`, `HINT` | Negative |
+   | `GENERIC_POSITIVE`, `GENERIC_NEGATIVE` | Use for anything else that's clearly good or bad for the player and doesn't fit the events above |
+
+2. **A custom event name** (any string), via the `string` overload — for a richer, game-specific vocabulary:
+
+```csharp
+SkillprintManager.Instance.LogEvent("CLOCKWISE_TAP", new Dictionary<string, object> {
+    { "comboCount", 4 },
+});
+```
+
+Custom event names don't need to be registered in advance — send whatever your game already tracks. They're picked up by Skillprint's scoring as additional context alongside screenshots. If you want a custom event to map to a specific improvement in scoring accuracy for your game, talk to your Skillprint contact about setting up a custom scoring configuration.
+
 ---
 
 ## 📊 User Profile Graph (Visualization)
@@ -381,6 +417,7 @@ The SDK communicates with the following Skillprint API endpoints:
 | `/games/api/sessions/` | POST | Start a new gameplay session |
 | `/games/api/record-session/{sessionId}/` | POST | Upload gameplay screenshots |
 | `/games/api/sessions/{sessionId}/` | GET | Poll for parameter adjustments |
+| `/games/api/sessions/telemetry` | POST | Log a discrete telemetry event (see [Log Discrete Telemetry Events](#5-log-discrete-telemetry-events)) |
 | `/partners/api/users/add/` | POST | Create a new player account |
 | `/partners/api/users/auth/token/` | POST | Get authentication token for a player |
 
