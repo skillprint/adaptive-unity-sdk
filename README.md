@@ -51,8 +51,11 @@ You can install the Skillprint SDK in your Unity project using one of the follow
    **Environment Configuration:**
    - **Target Environment:** Select `Production` or `Staging`.
 
+   **Authentication:**
+   - **Auth Mode:** `PartnerApiKey` (default) puts your API key in the build — fine for development, but anyone can extract it from a shipped game. `TokenProvider` ships **no key**: your backend mints short-lived SDK tokens instead. **Use `TokenProvider` for anything you release.** See [Shipping without an API key](#-shipping-without-an-api-key).
+
    **Production API Configuration:**
-   - **Partner API Key:** Enter your unique API key provided by Skillprint. *(Required)*
+   - **Partner API Key:** Enter your unique API key provided by Skillprint. *(Required in `PartnerApiKey` mode; leave empty in `TokenProvider` mode.)*
    - **API Base URL:** Default: `https://api.skillprint.co`. Only change this if instructed by the Skillprint team.
 
    **Staging API Configuration:**
@@ -295,6 +298,75 @@ public class ProfileController : MonoBehaviour
 
 ---
 
+## 🔐 Shipping without an API key
+
+Your Partner API Key can create players, mint tokens for **any** of your players and read your organization's data. It belongs on your server, not in a game binary. In `TokenProvider` mode the game never sees it:
+
+```
+Game (SDK)  ──"I need a token"──▶  Your backend  ──API key──▶  Skillprint
+            ◀──── spt_… token ────               ◀── token ───  POST /partners/api/sdk/token/
+Game (SDK)  ──Authorization: Bearer spt_…──▶  Skillprint (sessions, screenshots, polling, profile)
+```
+
+An SDK token is bound to **one player and one game**, expires in **1 hour** by default (max 24 hours), and can only start, update and poll that player's sessions, upload their screenshots and telemetry, and read their own profile. It can't create players, mint other tokens, or read other players' data. Revoking the API key that minted it revokes the token immediately.
+
+### 1. Add a token endpoint to your backend
+
+Authenticate the player your own way, then exchange your API key for a token **for that player**. Never mint for a player ID the client sends without checking it.
+
+```js
+// Node/Express example
+app.post("/skillprint/token", requireLoggedInPlayer, async (req, res) => {
+  const r = await fetch("https://api.skillprint.co/partners/api/sdk/token/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Api-Key": process.env.SKILLPRINT_API_KEY,   // stays on your server
+    },
+    body: JSON.stringify({
+      internalId: req.player.id,    // YOUR player id; the player is created on first use
+      game: "fruit-boom",           // your game slug
+      // ttlSeconds: 3600,          // optional, 60..86400
+    }),
+  });
+  res.status(r.status).json(await r.json()); // {"token","tokenType","expiresAt","expiresIn",...}
+});
+```
+
+### 2. Give the SDK a token provider
+
+Set **Auth Mode** to `TokenProvider`, clear the API key fields, and register a provider before starting a session. The SDK calls it before its first request, about a minute before the token expires, and once after a `401`.
+
+```csharp
+// Simplest: point the SDK at your endpoint. It POSTs {"playerId": ...} and reads token/expiresIn.
+SkillprintManager.Instance.SetTokenProvider(new HttpTokenProvider(
+    SkillprintManager.Instance,
+    "https://api.yourgame.com/skillprint/token",
+    request => request.SetRequestHeader("Authorization", "Bearer " + MyAuth.SessionToken)));
+
+SkillprintManager.Instance.StartGameSession("focus", MyAuth.PlayerId);
+```
+
+Or plug in your own networking:
+
+```csharp
+SkillprintManager.Instance.SetTokenProvider((playerId, onComplete) =>
+{
+    MyBackend.GetSkillprintToken((ok, token, expiresIn, error) =>
+        onComplete(ok
+            ? SkillprintTokenResult.FromExpiresIn(token, expiresIn)
+            : SkillprintTokenResult.Failure(error)));
+});
+```
+
+If you already have a token (e.g. your web page passes one into a WebGL build), hand it over directly with `SkillprintManager.Instance.SetSdkToken(token, expiresAtUtc)`. WebGL builds also pick up an SDK token from the `userToken` URL parameter automatically.
+
+> In `TokenProvider` mode the player is whoever the token was minted for; `customPlayerId` is passed to your provider as a hint only. `CreateOrGetUserToken` isn't available — your backend provisions players when it mints.
+
+Release builds that still contain a Partner API Key log a warning at build time.
+
+---
+
 ## 🌐 WebGL Support
 
 For WebGL builds, the SDK provides helper methods that automatically extract session parameters from the page URL. This is useful when Skillprint launches your game with specific parameters embedded in the URL.
@@ -381,10 +453,12 @@ The SDK communicates with the following Skillprint API endpoints:
 | `/games/api/sessions/` | POST | Start a new gameplay session |
 | `/games/api/record-session/{sessionId}/` | POST | Upload gameplay screenshots |
 | `/games/api/sessions/{sessionId}/` | GET | Poll for parameter adjustments |
-| `/partners/api/users/add/` | POST | Create a new player account |
-| `/partners/api/users/auth/token/` | POST | Get authentication token for a player |
+| `/scoring/api/profiles/`, `/scoring/api/skill-progression/`, `/scoring/api/mood-visualization/` | GET | Read the player's profile |
+| `/partners/api/users/add/` | POST | Create a new player account *(PartnerApiKey mode only)* |
+| `/partners/api/users/auth/token/` | POST | Get authentication token for a player *(PartnerApiKey mode only)* |
+| `/partners/api/sdk/token/` | POST | **Your backend** mints an SDK token *(never called by the SDK)* |
 
-All requests include the `Authorization: Api-Key <your-key>` header. When a user token is available, it is sent as `X-Auth-Token: Token <user-token>`.
+In `PartnerApiKey` mode requests carry `Authorization: Api-Key <your-key>`, plus `X-Auth-Token: Token <user-token>` when a user token is available. In `TokenProvider` mode they carry only `Authorization: Bearer <sdk-token>`.
 
 ---
 
@@ -393,7 +467,10 @@ All requests include the `Authorization: Api-Key <your-key>` header. When a user
 | Issue | Solution |
 |-------|----------|
 | "SkillprintConfig not assigned" | Drag your `SkillprintConfig.asset` to the Config slot on `SkillprintManager` |
-| "Partner API Key not set" | Enter your API key in the SkillprintConfig inspector |
+| "Partner API Key not set" | Enter your API key in the SkillprintConfig inspector, or switch Auth Mode to `TokenProvider` |
+| "No SDK token available" | Auth Mode is `TokenProvider`: call `SetTokenProvider(...)` or `SetSdkToken(...)` before `StartGameSession` |
+| `401` / "SDK token revoked/expired" | Your token endpoint must mint a fresh token each call; check the API key it uses is still active |
+| `403` "not valid for that game" | The token was minted for a different game slug than `SkillprintConfig.gameName` |
 | "Game name is required" | Set your game's registered **slug** (e.g., `fruit-boom`) in the Game Configuration section |
 | "Invalid targetMood" | Use one of: `focus`, `relax`, `grit`, `creativity`, `collaborate`, `joy`, `curiosity`, `empathy`, `awe` |
 | Screenshots not uploading | Check `Enable Debug Logging` and verify internet connectivity |

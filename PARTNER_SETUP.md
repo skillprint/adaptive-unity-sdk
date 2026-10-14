@@ -35,7 +35,7 @@
    ⚠️ The API key will NOT be shown again. Store it securely.
    Example format: aBcDeFgH.xYz123456789abcdef...
    ```
-4. Send this key to the partner for their `SkillprintConfig` asset.
+4. Send this key to the partner. For **shipped games** it goes on the partner's **backend**, which mints SDK tokens (`POST /partners/api/sdk/token/`) — not into `SkillprintConfig`. Only development builds should embed it (Auth Mode `PartnerApiKey`).
 
 ---
 
@@ -46,6 +46,7 @@
    - **Name**: Internal name that generates the slug (e.g., "Fruit Boom" → slug `fruit-boom`)
      - ⚠️ **Do not change this after creation** — the slug is permanent and the SDK references it.
    - **Display name**: User-facing name (can be changed freely)
+   - **Organization**: The org from Step 1. SDK tokens can be minted only for the partner's own games (or legacy games with no org).
    - **Short description**: Brief summary (required, even if placeholder)
    - **Is active**: ✅ Check this to enable the game
 3. Configure SDK-specific fields:
@@ -131,7 +132,7 @@ Send the following to the partner:
 
 | Item | Value | Where It Goes |
 |---|---|---|
-| API Key | `aBcDeFgH.xYz...` (from Step 2) | `SkillprintConfig` → Partner API Key |
+| API Key | `aBcDeFgH.xYz...` (from Step 2) | Partner's **backend** (token endpoint). Only dev builds: `SkillprintConfig` → Partner API Key |
 | Game Slug | `fruit-boom` (from Step 3) | `SkillprintConfig` → Game Name |
 | API Base URL | `https://api.skillprint.co` | `SkillprintConfig` → API Base URL (default) |
 | SDK Repo | `https://github.com/skillprint/adaptive-unity-sdk` | Unity Package Manager |

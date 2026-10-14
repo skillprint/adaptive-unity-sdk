@@ -25,6 +25,11 @@ namespace Skillprint.SDK
         private bool _isTransmissionPaused = false;
         private string _currentUserToken = null;
         private SkillprintAPIClient _apiClient;
+        private SkillprintAuth _auth;
+        // Set before the SDK initialized (e.g. from another Awake); applied on init.
+        private ISkillprintTokenProvider _pendingTokenProvider;
+        private string _pendingSdkToken;
+        private DateTime? _pendingSdkTokenExpiry;
         private ScreenshotUtility _screenshotUtility;
 
         private List<Texture2D> _screenshotQueue = new List<Texture2D>();
@@ -108,7 +113,7 @@ namespace Skillprint.SDK
             }
 
             // Use active properties from config
-            if (string.IsNullOrWhiteSpace(config.ActivePartnerApiKey))
+            if (config.RequiresPartnerApiKey && string.IsNullOrWhiteSpace(config.ActivePartnerApiKey))
             {
                 Log(
                     $"Partner API Key for {config.targetEnvironment} environment is not set in SkillprintConfig. SDK will not function.",
@@ -127,11 +132,29 @@ namespace Skillprint.SDK
                 return;
             }
 
-            _apiClient = new SkillprintAPIClient(
-                config.ActiveApiBaseUrl,
-                config.ActivePartnerApiKey,
+            if (!config.RequiresPartnerApiKey && !string.IsNullOrWhiteSpace(config.ActivePartnerApiKey))
+            {
+                Log(
+                    "Auth Mode is TokenProvider but a Partner API Key is still set in SkillprintConfig. "
+                        + "It is ignored, but it still ships in your build: clear it.",
+                    LogLevel.Warning
+                );
+            }
+
+            _auth = new SkillprintAuth(
+                config.authMode,
+                config.RequiresPartnerApiKey ? config.ActivePartnerApiKey : null,
                 Log
             );
+            if (_pendingTokenProvider != null)
+            {
+                _auth.SetProvider(_pendingTokenProvider);
+            }
+            if (!string.IsNullOrEmpty(_pendingSdkToken))
+            {
+                _auth.SetToken(_pendingSdkToken, _pendingSdkTokenExpiry);
+            }
+            _apiClient = new SkillprintAPIClient(config.ActiveApiBaseUrl, _auth, Log);
             _screenshotUtility = new ScreenshotUtility(Log);
 
             // Prepare registered parameters from config
@@ -151,7 +174,7 @@ namespace Skillprint.SDK
                 }
             }
             Log(
-                $"Skillprint SDK Initialized for {config.targetEnvironment} environment (URL: {config.ActiveApiBaseUrl})."
+                $"Skillprint SDK Initialized for {config.targetEnvironment} environment (URL: {config.ActiveApiBaseUrl}, auth: {config.authMode})."
             );
         }
 
@@ -274,6 +297,47 @@ namespace Skillprint.SDK
         }
 
         /// <summary>
+        /// Supplies SDK tokens from your backend when <see cref="SkillprintConfig.authMode"/> is
+        /// <see cref="SkillprintAuthMode.TokenProvider"/>. Call before <see cref="StartGameSession"/>.
+        /// The SDK asks for a token before its first request, shortly before expiry, and after a 401.
+        /// </summary>
+        public void SetTokenProvider(ISkillprintTokenProvider provider)
+        {
+            _pendingTokenProvider = provider;
+            if (_auth != null)
+            {
+                _auth.SetProvider(provider);
+            }
+        }
+
+        /// <summary>
+        /// Delegate form of <see cref="SetTokenProvider(ISkillprintTokenProvider)"/>:
+        /// <c>(playerId, onComplete) =&gt; { /* call your backend, then */ onComplete(SkillprintTokenResult.FromExpiresIn(token, expiresIn)); }</c>
+        /// </summary>
+        public void SetTokenProvider(Action<string, Action<SkillprintTokenResult>> fetchToken)
+        {
+            SetTokenProvider(fetchToken == null ? null : new DelegateTokenProvider(fetchToken));
+        }
+
+        /// <summary>
+        /// Hands the SDK a token you already have (e.g. passed into a WebGL page). Without a
+        /// provider it is used until it expires; with one, the provider takes over on refresh.
+        /// </summary>
+        public void SetSdkToken(string token, DateTime? expiresAtUtc = null)
+        {
+            _pendingSdkToken = token;
+            _pendingSdkTokenExpiry = expiresAtUtc;
+            if (_auth != null)
+            {
+                _auth.SetToken(token, expiresAtUtc);
+            }
+        }
+
+        /// <summary>The auth mode in effect (from the config).</summary>
+        public SkillprintAuthMode AuthMode =>
+            config != null ? config.authMode : SkillprintAuthMode.PartnerApiKey;
+
+        /// <summary>
         /// Starts a new Skillprint game session.
         /// </summary>
         /// <param name="customPlayerId">Optional: A custom player identifier if your game uses one.</param>
@@ -286,7 +350,8 @@ namespace Skillprint.SDK
             }
             if (
                 config == null
-                || string.IsNullOrWhiteSpace(config.ActivePartnerApiKey)
+                || _apiClient == null
+                || (config.RequiresPartnerApiKey && string.IsNullOrWhiteSpace(config.ActivePartnerApiKey))
                 || string.IsNullOrWhiteSpace(config.ActiveApiBaseUrl)
             )
             {
@@ -717,29 +782,18 @@ namespace Skillprint.SDK
 
         private IEnumerator GetUserProfileCoroutine(string customPlayerId, Action<bool, API.UserProfileResponse> callback)
         {
-            string token = _currentUserToken;
-            if (string.IsNullOrEmpty(token))
+            string token = null;
+            bool resolved = false;
+            string resolveError = null;
+            yield return ResolveUserToken(customPlayerId, (ok, result) =>
             {
-                bool tokenComplete = false;
-                yield return _apiClient.CreateOrGetUserToken(customPlayerId, (success, result) =>
-                {
-                    if (success)
-                    {
-                        token = result;
-                        _currentUserToken = result; // cache it
-                    }
-                    tokenComplete = true;
-                });
+                resolved = ok;
+                if (ok) token = result; else resolveError = result;
+            });
 
-                while (!tokenComplete)
-                {
-                    yield return null;
-                }
-            }
-
-            if (string.IsNullOrEmpty(token))
+            if (!resolved)
             {
-                Log("Failed to obtain user token for profile retrieval.", LogLevel.Error);
+                Log($"Failed to obtain user token for profile retrieval. {resolveError}", LogLevel.Error);
                 callback(false, null);
                 yield break;
             }
@@ -778,29 +832,18 @@ namespace Skillprint.SDK
 
         private IEnumerator GetSkillProgressionCoroutine(string customPlayerId, Action<bool, API.SkillProgressionResponse> callback)
         {
-            string token = _currentUserToken;
-            if (string.IsNullOrEmpty(token))
+            string token = null;
+            bool resolved = false;
+            string resolveError = null;
+            yield return ResolveUserToken(customPlayerId, (ok, result) =>
             {
-                bool tokenComplete = false;
-                yield return _apiClient.CreateOrGetUserToken(customPlayerId, (success, result) =>
-                {
-                    if (success)
-                    {
-                        token = result;
-                        _currentUserToken = result; // cache it
-                    }
-                    tokenComplete = true;
-                });
+                resolved = ok;
+                if (ok) token = result; else resolveError = result;
+            });
 
-                while (!tokenComplete)
-                {
-                    yield return null;
-                }
-            }
-
-            if (string.IsNullOrEmpty(token))
+            if (!resolved)
             {
-                Log("Failed to obtain user token for skill progression retrieval.", LogLevel.Error);
+                Log($"Failed to obtain user token for skill progression retrieval. {resolveError}", LogLevel.Error);
                 callback(false, null);
                 yield break;
             }
@@ -837,29 +880,18 @@ namespace Skillprint.SDK
 
         private IEnumerator GetMoodVisualizationCoroutine(string customPlayerId, Action<bool, string> callback)
         {
-            string token = _currentUserToken;
-            if (string.IsNullOrEmpty(token))
+            string token = null;
+            bool resolved = false;
+            string resolveError = null;
+            yield return ResolveUserToken(customPlayerId, (ok, result) =>
             {
-                bool tokenComplete = false;
-                yield return _apiClient.CreateOrGetUserToken(customPlayerId, (success, result) =>
-                {
-                    if (success)
-                    {
-                        token = result;
-                        _currentUserToken = result; // cache it
-                    }
-                    tokenComplete = true;
-                });
+                resolved = ok;
+                if (ok) token = result; else resolveError = result;
+            });
 
-                while (!tokenComplete)
-                {
-                    yield return null;
-                }
-            }
-
-            if (string.IsNullOrEmpty(token))
+            if (!resolved)
             {
-                Log("Failed to obtain user token for mood visualization retrieval.", LogLevel.Error);
+                Log($"Failed to obtain user token for mood visualization retrieval. {resolveError}", LogLevel.Error);
                 callback(false, null);
                 yield break;
             }
@@ -877,29 +909,18 @@ namespace Skillprint.SDK
 
         private IEnumerator GetUserProfileRawCoroutine(string customPlayerId, Action<bool, string> callback)
         {
-            string token = _currentUserToken;
-            if (string.IsNullOrEmpty(token))
+            string token = null;
+            bool resolved = false;
+            string resolveError = null;
+            yield return ResolveUserToken(customPlayerId, (ok, result) =>
             {
-                bool tokenComplete = false;
-                yield return _apiClient.CreateOrGetUserToken(customPlayerId, (success, result) =>
-                {
-                    if (success)
-                    {
-                        token = result;
-                        _currentUserToken = result; // cache it
-                    }
-                    tokenComplete = true;
-                });
+                resolved = ok;
+                if (ok) token = result; else resolveError = result;
+            });
 
-                while (!tokenComplete)
-                {
-                    yield return null;
-                }
-            }
-
-            if (string.IsNullOrEmpty(token))
+            if (!resolved)
             {
-                Log("Failed to obtain user token for raw profile retrieval.", LogLevel.Error);
+                Log($"Failed to obtain user token for raw profile retrieval. {resolveError}", LogLevel.Error);
                 callback(false, null);
                 yield break;
             }
@@ -917,34 +938,73 @@ namespace Skillprint.SDK
 
         private IEnumerator GetSkillProgressionRawCoroutine(string customPlayerId, Action<bool, string> callback)
         {
-            string token = _currentUserToken;
-            if (string.IsNullOrEmpty(token))
+            string token = null;
+            bool resolved = false;
+            string resolveError = null;
+            yield return ResolveUserToken(customPlayerId, (ok, result) =>
             {
-                bool tokenComplete = false;
-                yield return _apiClient.CreateOrGetUserToken(customPlayerId, (success, result) =>
-                {
-                    if (success)
-                    {
-                        token = result;
-                        _currentUserToken = result; // cache it
-                    }
-                    tokenComplete = true;
-                });
+                resolved = ok;
+                if (ok) token = result; else resolveError = result;
+            });
 
-                while (!tokenComplete)
-                {
-                    yield return null;
-                }
-            }
-
-            if (string.IsNullOrEmpty(token))
+            if (!resolved)
             {
-                Log("Failed to obtain user token for raw skill progression retrieval.", LogLevel.Error);
+                Log($"Failed to obtain user token for raw skill progression retrieval. {resolveError}", LogLevel.Error);
                 callback(false, null);
                 yield break;
             }
 
             yield return _apiClient.GetSkillProgression(token, callback);
+        }
+
+        /// <summary>
+        /// Identifies the player for the profile reads. In token mode the SDK token already
+        /// does, so this only readies it (result: true, null). In API-key mode it returns the
+        /// cached or looked-up Knox user token, as before.
+        /// </summary>
+        private IEnumerator ResolveUserToken(string customPlayerId, Action<bool, string> done)
+        {
+            if (_apiClient == null)
+            {
+                done(false, "SDK not initialized.");
+                yield break;
+            }
+
+            if (_auth.UsesToken)
+            {
+                _auth.SetPlayer(customPlayerId);
+                bool ready = false;
+                string error = null;
+                yield return _auth.EnsureReady(false, (ok, err) =>
+                {
+                    ready = ok;
+                    error = err;
+                });
+                done(ready, ready ? null : error);
+                yield break;
+            }
+
+            if (!string.IsNullOrEmpty(_currentUserToken))
+            {
+                done(true, _currentUserToken);
+                yield break;
+            }
+
+            string token = null;
+            string lookupError = null;
+            yield return _apiClient.CreateOrGetUserToken(customPlayerId, (success, result) =>
+            {
+                if (success)
+                {
+                    token = result;
+                    _currentUserToken = result; // cache it
+                }
+                else
+                {
+                    lookupError = result;
+                }
+            });
+            done(!string.IsNullOrEmpty(token), string.IsNullOrEmpty(token) ? lookupError : token);
         }
 
         /// <summary>
