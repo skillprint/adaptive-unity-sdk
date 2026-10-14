@@ -20,15 +20,24 @@ namespace Skillprint.SDK
         [Tooltip("Select the API environment the SDK should target.")]
         public ApiEnvironment targetEnvironment = ApiEnvironment.Production;
 
+        [Header("Authentication")]
+        [Tooltip(
+            "PartnerApiKey: the API key below ships inside your build. Development/internal builds only.\n"
+                + "TokenProvider: no key in the build. Your backend mints short-lived SDK tokens "
+                + "(POST /partners/api/sdk/token/) and the game supplies them via "
+                + "SkillprintManager.SetTokenProvider(...) or SetSdkToken(...). Recommended for shipped games."
+        )]
+        public SkillprintAuthMode authMode = SkillprintAuthMode.PartnerApiKey;
+
         [Header("Production API Configuration")]
-        [Tooltip("Your Skillprint Partner API Key for the PRODUCTION environment.")]
+        [Tooltip("Your Skillprint Partner API Key for the PRODUCTION environment. Only used when Auth Mode is PartnerApiKey; leave empty in TokenProvider mode so no key ships in the build.")]
         public string productionPartnerApiKey;
 
         [Tooltip("Base URL for the Skillprint PRODUCTION API. e.g., https://api.skillprint.co")]
         public string productionApiBaseUrl = "https://api.skillprint.co";
 
         [Header("Staging API Configuration")]
-        [Tooltip("Your Skillprint Partner API Key for the STAGING environment (if different).")]
+        [Tooltip("Your Skillprint Partner API Key for the STAGING environment (if different). Only used when Auth Mode is PartnerApiKey.")]
         public string stagingPartnerApiKey;
 
         [Tooltip(
@@ -79,6 +88,9 @@ namespace Skillprint.SDK
                 }
             }
         }
+
+        /// <summary>True when this configuration needs a partner API key in the build.</summary>
+        public bool RequiresPartnerApiKey => authMode == SkillprintAuthMode.PartnerApiKey;
 
         public string ActiveApiBaseUrl
         {

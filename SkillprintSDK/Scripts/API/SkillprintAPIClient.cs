@@ -11,7 +11,7 @@ namespace Skillprint.SDK.API
     public class SkillprintAPIClient
     {
         private string _baseUrl;
-        private string _partnerApiKey;
+        private readonly SkillprintAuth _auth;
         private Action<string, SkillprintManager.LogLevel> _logger;
 
         // API Endpoints
@@ -22,6 +22,7 @@ namespace Skillprint.SDK.API
         private const string GET_USER_TOKEN_ENDPOINT = "/partners/api/users/auth/token/";
         private const string GET_USER_PROFILE_ENDPOINT = "/scoring/api/profiles/";
         private const string GET_SKILL_PROGRESSION_ENDPOINT = "/scoring/api/skill-progression/";
+        private const string GET_MOOD_VISUALIZATION_ENDPOINT = "/scoring/api/mood-visualization/";
 
         // Request configuration
         private const int REQUEST_TIMEOUT_SECONDS = 10;
@@ -29,16 +30,118 @@ namespace Skillprint.SDK.API
         private const int MAX_UPLOAD_RETRIES = 2;
         private const float RETRY_BASE_DELAY_SECONDS = 1.0f;
 
+        private const string TOKEN_MODE_NO_PARTNER_ENDPOINTS =
+            "Not available in TokenProvider auth mode: your backend provisions the player when it mints the SDK token.";
+
+        /// <summary>
+        /// Legacy constructor: authenticates every request with the partner API key.
+        /// </summary>
         public SkillprintAPIClient(
             string baseUrl,
             string partnerApiKey,
             Action<string, SkillprintManager.LogLevel> logger
         )
+            : this(baseUrl, new SkillprintAuth(SkillprintAuthMode.PartnerApiKey, partnerApiKey, logger), logger)
+        {
+        }
+
+        public SkillprintAPIClient(
+            string baseUrl,
+            SkillprintAuth auth,
+            Action<string, SkillprintManager.LogLevel> logger
+        )
         {
             _baseUrl = baseUrl.TrimEnd('/');
-            _partnerApiKey = partnerApiKey;
+            _auth = auth;
             _logger = logger;
         }
+
+        /// <summary>The credential this client authenticates with.</summary>
+        public SkillprintAuth Auth => _auth;
+
+        // ── Request plumbing ────────────────────────────────────────────────
+
+        /// <summary>
+        /// Ensures a credential is ready, builds and sends the request with it, and — in
+        /// token mode — refreshes the token and retries once on a 401. <paramref name="onResponse"/>
+        /// receives the finished request (disposed afterwards); <paramref name="onAuthError"/>
+        /// is called instead when no credential could be obtained.
+        /// </summary>
+        private IEnumerator SendAuthorized(
+            Func<UnityWebRequest> build,
+            Action<UnityWebRequest> onResponse,
+            Action<string> onAuthError
+        )
+        {
+            bool ready = false;
+            string authError = null;
+            yield return _auth.EnsureReady(false, (ok, err) =>
+            {
+                ready = ok;
+                authError = err;
+            });
+            if (!ready)
+            {
+                onAuthError(authError);
+                yield break;
+            }
+
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                using (UnityWebRequest request = build())
+                {
+                    _auth.Apply(request);
+                    yield return request.SendWebRequest();
+
+                    bool unauthorized = request.responseCode == 401;
+                    if (unauthorized && _auth.UsesToken && _auth.HasProvider && attempt == 0)
+                    {
+                        _logger?.Invoke(
+                            "SDK token rejected (401); refreshing and retrying once.",
+                            SkillprintManager.LogLevel.Warning
+                        );
+                        _auth.Invalidate();
+                        bool refreshed = false;
+                        string refreshError = null;
+                        yield return _auth.EnsureReady(true, (ok, err) =>
+                        {
+                            refreshed = ok;
+                            refreshError = err;
+                        });
+                        if (!refreshed)
+                        {
+                            onAuthError(refreshError);
+                            yield break;
+                        }
+                        continue;
+                    }
+
+                    onResponse(request);
+                    yield break;
+                }
+            }
+        }
+
+        private static UnityWebRequest JsonRequest(string url, string method, string json)
+        {
+            var request = new UnityWebRequest(url, method);
+            request.timeout = REQUEST_TIMEOUT_SECONDS;
+            if (json != null)
+            {
+                request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
+                request.SetRequestHeader("Content-Type", "application/json");
+            }
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Accept", "application/json");
+            return request;
+        }
+
+        private static string ErrorText(UnityWebRequest request)
+        {
+            return request.error + " | " + (request.downloadHandler != null ? request.downloadHandler.text : "");
+        }
+
+        // ── Sessions ────────────────────────────────────────────────────────
 
         public IEnumerator StartSession(
             string sessionId,
@@ -49,7 +152,6 @@ namespace Skillprint.SDK.API
             Action<bool, string> callback
         )
         {
-            // TODO: Create or obtain user token using customPlayerId
             string url = _baseUrl + START_SESSION_ENDPOINT;
             _logger?.Invoke($"Starting session: POST {url}", SkillprintManager.LogLevel.Info);
             _logger?.Invoke(
@@ -69,18 +171,21 @@ namespace Skillprint.SDK.API
                 yield break; // Stop further execution
             }
 
-            // Create or get user token if customPlayerId is provided
+            // In token mode the player is whoever the SDK token was minted for, so there is
+            // no user token to look up; customPlayerId only tells the provider who is playing.
             string userToken = null;
-            if (!string.IsNullOrEmpty(customPlayerId))
+            if (_auth.UsesToken)
             {
-                bool tokenRetrieved = false;
+                _auth.SetPlayer(customPlayerId);
+            }
+            else if (!string.IsNullOrEmpty(customPlayerId))
+            {
                 string tokenResult = null;
 
                 yield return CreateOrGetUserToken(
                     customPlayerId,
                     (success, result) =>
                     {
-                        tokenRetrieved = true;
                         if (success)
                         {
                             userToken = result;
@@ -99,12 +204,6 @@ namespace Skillprint.SDK.API
                         }
                     }
                 );
-
-                // Wait for token retrieval to complete
-                while (!tokenRetrieved)
-                {
-                    yield return null;
-                }
 
                 // If token retrieval failed, we can still continue with session creation
                 // but log the issue
@@ -126,42 +225,37 @@ namespace Skillprint.SDK.API
             };
             string jsonData = JsonUtility.ToJson(requestData);
 
-            using (UnityWebRequest webRequest = new UnityWebRequest(url, "POST"))
-            {
-                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
-                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
-                webRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                webRequest.downloadHandler = new DownloadHandlerBuffer();
-                webRequest.SetRequestHeader("Content-Type", "application/json");
-                webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
-                // If userToken is available, set it in the Authorization header
-                if (!string.IsNullOrEmpty(userToken))
+            yield return SendAuthorized(
+                () =>
                 {
-                    webRequest.SetRequestHeader("X-Auth-Token", "Token " + userToken);
-                }
-
-                yield return webRequest.SendWebRequest();
-
-                if (webRequest.result == UnityWebRequest.Result.Success)
+                    var request = JsonRequest(url, "POST", jsonData);
+                    if (!string.IsNullOrEmpty(userToken))
+                    {
+                        request.SetRequestHeader("X-Auth-Token", "Token " + userToken);
+                    }
+                    return request;
+                },
+                webRequest =>
                 {
-                    _logger?.Invoke(
-                        $"StartSession successful. Response: {webRequest.downloadHandler.text}",
-                        SkillprintManager.LogLevel.Info
-                    );
-                    // Assuming API returns a simple success message or session ID. Parse if needed.
-                    // BaseResponse response = JsonUtility.FromJson<BaseResponse>(webRequest.downloadHandler.text);
-                    // callback(response.success, response.message);
-                    callback(true, webRequest.downloadHandler.text); // Simplified
-                }
-                else
-                {
-                    _logger?.Invoke(
-                        $"StartSession Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
-                        SkillprintManager.LogLevel.Error
-                    );
-                    callback(false, webRequest.error + " | " + webRequest.downloadHandler.text);
-                }
-            }
+                    if (webRequest.result == UnityWebRequest.Result.Success)
+                    {
+                        _logger?.Invoke(
+                            $"StartSession successful. Response: {webRequest.downloadHandler.text}",
+                            SkillprintManager.LogLevel.Info
+                        );
+                        callback(true, webRequest.downloadHandler.text);
+                    }
+                    else
+                    {
+                        _logger?.Invoke(
+                            $"StartSession Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
+                            SkillprintManager.LogLevel.Error
+                        );
+                        callback(false, ErrorText(webRequest));
+                    }
+                },
+                authError => callback(false, authError)
+            );
         }
 
         public IEnumerator PostScreenshots(
@@ -191,14 +285,8 @@ namespace Skillprint.SDK.API
                 yield break;
             }
 
-            List<IMultipartFormSection> formData = new List<IMultipartFormSection>();
-
-            // Add the is_last_chunk field (as text/plain)
-            // API expects boolean true/false as string.
-            formData.Add(
-                new MultipartFormDataSection("is_last_chunk", isLastChunk.ToString().ToLower())
-            );
-
+            // Encode once; every attempt reuses the same JPEG bytes.
+            var encoded = new List<KeyValuePair<int, byte[]>>();
             for (int i = 0; i < screenshots.Count; i++)
             {
                 if (screenshots[i] == null)
@@ -218,26 +306,12 @@ namespace Skillprint.SDK.API
                     );
                     continue;
                 }
-
-                // MODIFIED: Use "screenshot0", "screenshot1", etc. as field names
-                string formFieldName = $"screenshot{i}";
-                // The filename for Content-Disposition, can be simple.
-                string filenameForUpload = $"screenshot_{i}.jpg";
-
-                formData.Add(
-                    new MultipartFormFileSection(
-                        formFieldName,
-                        jpgData,
-                        filenameForUpload,
-                        "image/jpeg"
-                    )
-                );
+                encoded.Add(new KeyValuePair<int, byte[]>(i, jpgData));
             }
 
-            // After adding is_last_chunk, if there are no actual image files added (e.g. all were null or failed to encode)
-            // AND it's not the last chunk, then it's an issue.
-            // formData will have 1 element if only is_last_chunk was added.
-            if (formData.Count <= 1 && !isLastChunk && screenshots.Count > 0) // screenshots.Count > 0 means we intended to send images
+            // If there are no actual image files (all null or failed to encode) and it's not
+            // the last chunk, there is nothing to send.
+            if (encoded.Count == 0 && !isLastChunk && screenshots.Count > 0)
             {
                 _logger?.Invoke(
                     "All provided screenshots were invalid (null or failed to encode), and 'is_last_chunk' is false.",
@@ -246,19 +320,45 @@ namespace Skillprint.SDK.API
                 callback(false, "No valid images to post, and not the last chunk.");
                 yield break;
             }
-            // If formData.Count == 1 and isLastChunk is TRUE, it's fine (sending only is_last_chunk=true)
+
+            Func<UnityWebRequest> build = () =>
+            {
+                // UnityWebRequest can't be reused, so the form is rebuilt for every attempt.
+                var formData = new List<IMultipartFormSection>
+                {
+                    // API expects boolean true/false as string.
+                    new MultipartFormDataSection("is_last_chunk", isLastChunk.ToString().ToLower())
+                };
+                foreach (var shot in encoded)
+                {
+                    // Field names "screenshot0", "screenshot1", ...
+                    formData.Add(
+                        new MultipartFormFileSection(
+                            $"screenshot{shot.Key}",
+                            shot.Value,
+                            $"screenshot_{shot.Key}.jpg",
+                            "image/jpeg"
+                        )
+                    );
+                }
+                // UnityWebRequest.Post sets the multipart Content-Type and boundary.
+                var request = UnityWebRequest.Post(url, formData);
+                request.timeout = UPLOAD_TIMEOUT_SECONDS;
+                return request;
+            };
 
             _logger?.Invoke(
-                $"Form Data prepared. Number of parts: {formData.Count}",
+                $"Form Data prepared. Number of images: {encoded.Count}",
                 SkillprintManager.LogLevel.Info
             );
 
             // Retry loop for screenshot uploads — network blips shouldn't lose gameplay data
             int attempt = 0;
             bool succeeded = false;
+            bool authFailed = false;
             string lastError = null;
 
-            while (attempt <= MAX_UPLOAD_RETRIES && !succeeded)
+            while (attempt <= MAX_UPLOAD_RETRIES && !succeeded && !authFailed)
             {
                 if (attempt > 0)
                 {
@@ -268,52 +368,38 @@ namespace Skillprint.SDK.API
                         SkillprintManager.LogLevel.Warning
                     );
                     yield return new WaitForSeconds(delay);
-
-                    // Rebuild form data for retry (UnityWebRequest can't be reused)
-                    formData = new List<IMultipartFormSection>();
-                    formData.Add(
-                        new MultipartFormDataSection("is_last_chunk", isLastChunk.ToString().ToLower())
-                    );
-                    for (int j = 0; j < screenshots.Count; j++)
-                    {
-                        if (screenshots[j] == null) continue;
-                        byte[] retryJpgData = screenshots[j].EncodeToJPG();
-                        if (retryJpgData == null || retryJpgData.Length == 0) continue;
-                        formData.Add(
-                            new MultipartFormFileSection(
-                                $"screenshot{j}", retryJpgData, $"screenshot_{j}.jpg", "image/jpeg"
-                            )
-                        );
-                    }
                 }
 
-                using (UnityWebRequest webRequest = UnityWebRequest.Post(url, formData))
-                {
-                    webRequest.timeout = UPLOAD_TIMEOUT_SECONDS;
-                    webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
-                    // UnityWebRequest.Post usually sets the Content-Type for multipart/form-data automatically,
-                    // including the boundary.
-
-                    yield return webRequest.SendWebRequest();
-
-                    if (webRequest.result == UnityWebRequest.Result.Success)
+                int attemptNumber = attempt + 1;
+                yield return SendAuthorized(
+                    build,
+                    webRequest =>
                     {
-                        _logger?.Invoke(
-                            $"PostScreenshots successful. Response: {webRequest.downloadHandler.text}",
-                            SkillprintManager.LogLevel.Info
-                        );
-                        succeeded = true;
-                        callback(true, webRequest.downloadHandler.text);
-                    }
-                    else
+                        if (webRequest.result == UnityWebRequest.Result.Success)
+                        {
+                            _logger?.Invoke(
+                                $"PostScreenshots successful. Response: {webRequest.downloadHandler.text}",
+                                SkillprintManager.LogLevel.Info
+                            );
+                            succeeded = true;
+                            callback(true, webRequest.downloadHandler.text);
+                        }
+                        else
+                        {
+                            lastError = ErrorText(webRequest);
+                            _logger?.Invoke(
+                                $"PostScreenshots Error (attempt {attemptNumber}): {webRequest.error}. Response Code: {webRequest.responseCode}. Details: {webRequest.downloadHandler.text}",
+                                SkillprintManager.LogLevel.Error
+                            );
+                        }
+                    },
+                    authError =>
                     {
-                        lastError = webRequest.error + " | " + webRequest.downloadHandler.text;
-                        _logger?.Invoke(
-                            $"PostScreenshots Error (attempt {attempt + 1}): {webRequest.error}. Response Code: {webRequest.responseCode}. Details: {webRequest.downloadHandler.text}",
-                            SkillprintManager.LogLevel.Error
-                        );
+                        // No credential: retrying the upload won't help.
+                        authFailed = true;
+                        lastError = authError;
                     }
-                }
+                );
 
                 attempt++;
             }
@@ -321,7 +407,7 @@ namespace Skillprint.SDK.API
             if (!succeeded)
             {
                 _logger?.Invoke(
-                    $"PostScreenshots failed after {MAX_UPLOAD_RETRIES + 1} attempts. Last error: {lastError}",
+                    $"PostScreenshots failed after {attempt} attempt(s). Last error: {lastError}",
                     SkillprintManager.LogLevel.Error
                 );
                 callback(false, lastError);
@@ -336,16 +422,20 @@ namespace Skillprint.SDK.API
             string url = $"{_baseUrl}{POLL_RESULTS_ENDPOINT.Replace("{sessionId}", sessionId)}";
             _logger?.Invoke($"Polling results: GET {url}", SkillprintManager.LogLevel.Info);
 
-            using (UnityWebRequest webRequest = UnityWebRequest.Get(url))
-            {
-                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
-                webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
-                webRequest.SetRequestHeader("Accept", "application/json");
-
-                yield return webRequest.SendWebRequest();
-
-                if (webRequest.result == UnityWebRequest.Result.Success)
+            yield return SendAuthorized(
+                () => JsonRequest(url, "GET", null),
+                webRequest =>
                 {
+                    if (webRequest.result != UnityWebRequest.Result.Success)
+                    {
+                        _logger?.Invoke(
+                            $"PollResults Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
+                            SkillprintManager.LogLevel.Error
+                        );
+                        callback(false, null);
+                        return;
+                    }
+
                     string responseText = webRequest.downloadHandler.text;
                     _logger?.Invoke(
                         $"PollResults successful. Response: {responseText}",
@@ -362,10 +452,6 @@ namespace Skillprint.SDK.API
                             _logger?.Invoke(
                                 $"Successfully parsed {parameterUpdates.Count} parameter updates",
                                 SkillprintManager.LogLevel.Info
-                            );
-                            _logger?.Invoke(
-                                $"{parameterUpdates}",
-                                SkillprintManager.LogLevel.Warning
                             );
 
                             // Log each parameter update for debugging
@@ -397,29 +483,34 @@ namespace Skillprint.SDK.API
                         );
                         callback(false, null);
                     }
-                }
-                else
+                },
+                authError =>
                 {
-                    _logger?.Invoke(
-                        $"PollResults Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
-                        SkillprintManager.LogLevel.Error
-                    );
+                    _logger?.Invoke($"PollResults skipped: {authError}", SkillprintManager.LogLevel.Error);
                     callback(false, null);
                 }
-            }
+            );
         }
 
+        // ── Players (API-key mode only) ─────────────────────────────────────
+
         /// <summary>
-        /// Creates a new user with the given internal ID, or gets an existing user's token
+        /// Creates a new user with the given internal ID, or gets an existing user's token.
+        /// Only in <see cref="SkillprintAuthMode.PartnerApiKey"/> mode — these endpoints need
+        /// the partner API key; in token mode the partner backend provisions players.
         /// </summary>
         /// <param name="customPlayerId">The partner's internal player ID</param>
         /// <param name="callback">Callback with success status and user token (or error message)</param>
-        /// <returns></returns>
         public IEnumerator CreateOrGetUserToken(
             string customPlayerId,
             Action<bool, string> callback
         )
         {
+            if (_auth.UsesToken)
+            {
+                callback(false, TOKEN_MODE_NO_PARTNER_ENDPOINTS);
+                yield break;
+            }
             if (string.IsNullOrEmpty(customPlayerId))
             {
                 callback(false, "Custom player ID cannot be null or empty");
@@ -427,90 +518,61 @@ namespace Skillprint.SDK.API
             }
 
             // First, try to get an existing user token
-            bool tokenAttemptComplete = false;
             bool tokenSuccess = false;
             string tokenResult = null;
-
             yield return GetUserToken(
                 customPlayerId,
                 (success, result) =>
                 {
-                    tokenAttemptComplete = true;
                     tokenSuccess = success;
                     tokenResult = result;
                 }
             );
 
-            // Wait for the token attempt to complete
-            while (!tokenAttemptComplete)
-            {
-                yield return null;
-            }
-
             if (tokenSuccess)
             {
                 // User exists, token retrieved successfully
                 callback(true, tokenResult);
+                yield break;
+            }
+
+            // User doesn't exist or token retrieval failed, try to create user
+            bool createSuccess = false;
+            string createResult = null;
+            yield return CreateUser(
+                customPlayerId,
+                (success, result) =>
+                {
+                    createSuccess = success;
+                    createResult = result;
+                }
+            );
+
+            if (!createSuccess)
+            {
+                callback(false, $"Failed to create user: {createResult}");
+                yield break;
+            }
+
+            // User created successfully, now get token
+            bool newTokenSuccess = false;
+            string newTokenResult = null;
+            yield return GetUserToken(
+                customPlayerId,
+                (success, result) =>
+                {
+                    newTokenSuccess = success;
+                    newTokenResult = result;
+                }
+            );
+
+            if (newTokenSuccess)
+            {
+                callback(true, newTokenResult);
             }
             else
             {
-                // User doesn't exist or token retrieval failed, try to create user
-                bool createAttemptComplete = false;
-                bool createSuccess = false;
-                string createResult = null;
-
-                yield return CreateUser(
-                    customPlayerId,
-                    (success, result) =>
-                    {
-                        createAttemptComplete = true;
-                        createSuccess = success;
-                        createResult = result;
-                    }
-                );
-
-                // Wait for the create attempt to complete
-                while (!createAttemptComplete)
-                {
-                    yield return null;
-                }
-
-                if (createSuccess)
-                {
-                    // User created successfully, now get token
-                    bool newTokenAttemptComplete = false;
-                    bool newTokenSuccess = false;
-                    string newTokenResult = null;
-
-                    yield return GetUserToken(
-                        customPlayerId,
-                        (success, result) =>
-                        {
-                            newTokenAttemptComplete = true;
-                            newTokenSuccess = success;
-                            newTokenResult = result;
-                        }
-                    );
-
-                    // Wait for the new token attempt to complete
-                    while (!newTokenAttemptComplete)
-                    {
-                        yield return null;
-                    }
-
-                    if (newTokenSuccess)
-                    {
-                        callback(true, newTokenResult);
-                    }
-                    else
-                    {
-                        callback(false, $"User created but failed to get token: {newTokenResult}");
-                    }
-                }
-                else
-                {
-                    callback(false, $"Failed to create user: {createResult}");
-                }
+                callback(false, $"User created but failed to get token: {newTokenResult}");
             }
         }
 
@@ -525,37 +587,31 @@ namespace Skillprint.SDK.API
                 SkillprintManager.LogLevel.Info
             );
 
-            CreateUserRequest requestData = new CreateUserRequest { internalId = internalId };
-            string jsonData = JsonUtility.ToJson(requestData);
+            string jsonData = JsonUtility.ToJson(new CreateUserRequest { internalId = internalId });
 
-            using (UnityWebRequest webRequest = new UnityWebRequest(url, "POST"))
-            {
-                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
-                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
-                webRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                webRequest.downloadHandler = new DownloadHandlerBuffer();
-                webRequest.SetRequestHeader("Content-Type", "application/json");
-                webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
-
-                yield return webRequest.SendWebRequest();
-
-                if (webRequest.result == UnityWebRequest.Result.Success)
+            yield return SendAuthorized(
+                () => JsonRequest(url, "POST", jsonData),
+                webRequest =>
                 {
-                    _logger?.Invoke(
-                        $"CreateUser successful. Response: {webRequest.downloadHandler.text}",
-                        SkillprintManager.LogLevel.Info
-                    );
-                    callback(true, webRequest.downloadHandler.text);
-                }
-                else
-                {
-                    _logger?.Invoke(
-                        $"CreateUser Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
-                        SkillprintManager.LogLevel.Error
-                    );
-                    callback(false, webRequest.error + " | " + webRequest.downloadHandler.text);
-                }
-            }
+                    if (webRequest.result == UnityWebRequest.Result.Success)
+                    {
+                        _logger?.Invoke(
+                            $"CreateUser successful. Response: {webRequest.downloadHandler.text}",
+                            SkillprintManager.LogLevel.Info
+                        );
+                        callback(true, webRequest.downloadHandler.text);
+                    }
+                    else
+                    {
+                        _logger?.Invoke(
+                            $"CreateUser Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
+                            SkillprintManager.LogLevel.Error
+                        );
+                        callback(false, ErrorText(webRequest));
+                    }
+                },
+                authError => callback(false, authError)
+            );
         }
 
         /// <summary>
@@ -569,27 +625,26 @@ namespace Skillprint.SDK.API
                 SkillprintManager.LogLevel.Info
             );
 
-            GetUserTokenRequest requestData = new GetUserTokenRequest { internalId = internalId };
-            string jsonData = JsonUtility.ToJson(requestData);
+            string jsonData = JsonUtility.ToJson(new GetUserTokenRequest { internalId = internalId });
 
-            using (UnityWebRequest webRequest = new UnityWebRequest(url, "POST"))
-            {
-                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
-                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
-                webRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                webRequest.downloadHandler = new DownloadHandlerBuffer();
-                webRequest.SetRequestHeader("Content-Type", "application/json");
-                webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
-
-                yield return webRequest.SendWebRequest();
-
-                if (webRequest.result == UnityWebRequest.Result.Success)
+            yield return SendAuthorized(
+                () => JsonRequest(url, "POST", jsonData),
+                webRequest =>
                 {
+                    if (webRequest.result != UnityWebRequest.Result.Success)
+                    {
+                        _logger?.Invoke(
+                            $"GetUserToken Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
+                            SkillprintManager.LogLevel.Error
+                        );
+                        callback(false, ErrorText(webRequest));
+                        return;
+                    }
+
                     _logger?.Invoke(
-                        $"GetUserToken successful. Response: {webRequest.downloadHandler.text}",
+                        "GetUserToken successful.",
                         SkillprintManager.LogLevel.Info
                     );
-
                     try
                     {
                         // Parse the response to extract the token
@@ -606,7 +661,7 @@ namespace Skillprint.SDK.API
                             callback(false, "Token not found in response");
                         }
                     }
-                    catch (System.Exception e)
+                    catch (Exception e)
                     {
                         _logger?.Invoke(
                             $"Failed to parse token response: {e.Message}",
@@ -614,142 +669,82 @@ namespace Skillprint.SDK.API
                         );
                         callback(false, "Failed to parse token response");
                     }
-                }
-                else
+                },
+                authError => callback(false, authError)
+            );
+        }
+
+        // ── Player reads ────────────────────────────────────────────────────
+
+        /// <summary>
+        /// GET a player-scoped endpoint. In API-key mode <paramref name="userToken"/> (a Knox
+        /// token) identifies the player; in token mode the SDK token already does.
+        /// </summary>
+        private IEnumerator GetPlayerResource(
+            string endpoint,
+            string label,
+            string userToken,
+            Action<bool, string> callback
+        )
+        {
+            string url = _baseUrl + endpoint;
+            _logger?.Invoke($"Getting {label}: GET {url}", SkillprintManager.LogLevel.Info);
+
+            yield return SendAuthorized(
+                () =>
                 {
-                    _logger?.Invoke(
-                        $"GetUserToken Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
-                        SkillprintManager.LogLevel.Error
-                    );
-                    callback(false, webRequest.error + " | " + webRequest.downloadHandler.text);
-                }
-            }
+                    var request = JsonRequest(url, "GET", null);
+                    if (!_auth.UsesToken && !string.IsNullOrEmpty(userToken))
+                    {
+                        request.SetRequestHeader("X-Auth-Token", "Token " + userToken);
+                    }
+                    return request;
+                },
+                webRequest =>
+                {
+                    if (webRequest.result == UnityWebRequest.Result.Success)
+                    {
+                        _logger?.Invoke(
+                            $"Get {label} successful. Response: {webRequest.downloadHandler.text}",
+                            SkillprintManager.LogLevel.Info
+                        );
+                        callback(true, webRequest.downloadHandler.text);
+                    }
+                    else
+                    {
+                        _logger?.Invoke(
+                            $"Get {label} Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
+                            SkillprintManager.LogLevel.Error
+                        );
+                        callback(false, ErrorText(webRequest));
+                    }
+                },
+                authError => callback(false, authError)
+            );
         }
 
         /// <summary>
         /// Retrieves the user profile information.
         /// </summary>
-        public IEnumerator GetUserProfile(
-            string userToken,
-            Action<bool, string> callback
-        )
+        public IEnumerator GetUserProfile(string userToken, Action<bool, string> callback)
         {
-            string url = _baseUrl + GET_USER_PROFILE_ENDPOINT;
-            _logger?.Invoke($"Getting user profile: GET {url}", SkillprintManager.LogLevel.Info);
-
-            using (UnityWebRequest webRequest = UnityWebRequest.Get(url))
-            {
-                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
-                webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
-                if (!string.IsNullOrEmpty(userToken))
-                {
-                    webRequest.SetRequestHeader("X-Auth-Token", "Token " + userToken);
-                }
-                webRequest.SetRequestHeader("Accept", "application/json");
-
-                yield return webRequest.SendWebRequest();
-
-                if (webRequest.result == UnityWebRequest.Result.Success)
-                {
-                    _logger?.Invoke(
-                        $"GetUserProfile successful. Response: {webRequest.downloadHandler.text}",
-                        SkillprintManager.LogLevel.Info
-                    );
-                    callback(true, webRequest.downloadHandler.text);
-                }
-                else
-                {
-                    _logger?.Invoke(
-                        $"GetUserProfile Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
-                        SkillprintManager.LogLevel.Error
-                    );
-                    callback(false, webRequest.error + " | " + webRequest.downloadHandler.text);
-                }
-            }
+            return GetPlayerResource(GET_USER_PROFILE_ENDPOINT, "user profile", userToken, callback);
         }
 
         /// <summary>
         /// Retrieves the skill progression information.
         /// </summary>
-        public IEnumerator GetSkillProgression(
-            string userToken,
-            Action<bool, string> callback
-        )
+        public IEnumerator GetSkillProgression(string userToken, Action<bool, string> callback)
         {
-            string url = _baseUrl + GET_SKILL_PROGRESSION_ENDPOINT;
-            _logger?.Invoke($"Getting skill progression: GET {url}", SkillprintManager.LogLevel.Info);
-
-            using (UnityWebRequest webRequest = UnityWebRequest.Get(url))
-            {
-                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
-                webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
-                if (!string.IsNullOrEmpty(userToken))
-                {
-                    webRequest.SetRequestHeader("X-Auth-Token", "Token " + userToken);
-                }
-                webRequest.SetRequestHeader("Accept", "application/json");
-
-                yield return webRequest.SendWebRequest();
-
-                if (webRequest.result == UnityWebRequest.Result.Success)
-                {
-                    _logger?.Invoke(
-                        $"GetSkillProgression successful. Response: {webRequest.downloadHandler.text}",
-                        SkillprintManager.LogLevel.Info
-                    );
-                    callback(true, webRequest.downloadHandler.text);
-                }
-                else
-                {
-                    _logger?.Invoke(
-                        $"GetSkillProgression Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
-                        SkillprintManager.LogLevel.Error
-                    );
-                    callback(false, webRequest.error + " | " + webRequest.downloadHandler.text);
-                }
-            }
+            return GetPlayerResource(GET_SKILL_PROGRESSION_ENDPOINT, "skill progression", userToken, callback);
         }
 
         /// <summary>
         /// Retrieves the mood visualization information.
         /// </summary>
-        public IEnumerator GetMoodVisualization(
-            string userToken,
-            Action<bool, string> callback
-        )
+        public IEnumerator GetMoodVisualization(string userToken, Action<bool, string> callback)
         {
-            string url = _baseUrl + "/scoring/api/mood-visualization/";
-            _logger?.Invoke($"Getting mood visualization: GET {url}", SkillprintManager.LogLevel.Info);
-
-            using (UnityWebRequest webRequest = UnityWebRequest.Get(url))
-            {
-                webRequest.timeout = REQUEST_TIMEOUT_SECONDS;
-                webRequest.SetRequestHeader("Authorization", "Api-Key " + _partnerApiKey);
-                if (!string.IsNullOrEmpty(userToken))
-                {
-                    webRequest.SetRequestHeader("X-Auth-Token", "Token " + userToken);
-                }
-                webRequest.SetRequestHeader("Accept", "application/json");
-
-                yield return webRequest.SendWebRequest();
-
-                if (webRequest.result == UnityWebRequest.Result.Success)
-                {
-                    _logger?.Invoke(
-                        $"GetMoodVisualization successful. Response: {webRequest.downloadHandler.text}",
-                        SkillprintManager.LogLevel.Info
-                    );
-                    callback(true, webRequest.downloadHandler.text);
-                }
-                else
-                {
-                    _logger?.Invoke(
-                        $"GetMoodVisualization Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
-                        SkillprintManager.LogLevel.Error
-                    );
-                    callback(false, webRequest.error + " | " + webRequest.downloadHandler.text);
-                }
-            }
+            return GetPlayerResource(GET_MOOD_VISUALIZATION_ENDPOINT, "mood visualization", userToken, callback);
         }
 
         [System.Serializable]

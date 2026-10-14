@@ -203,7 +203,15 @@ namespace Skillprint.SDK.API
 
                     if (!string.IsNullOrEmpty(userToken))
                     {
-                        manager.CurrentUserToken = userToken;
+                        if (userToken.StartsWith("spt_"))
+                        {
+                            // A partner-minted SDK token (TokenProvider auth mode).
+                            manager.SetSdkToken(userToken);
+                        }
+                        else
+                        {
+                            manager.CurrentUserToken = userToken;
+                        }
                     }
 
                     manager.Log(

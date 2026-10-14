@@ -16,6 +16,25 @@ namespace Skillprint.SDK.Editor
             EditorGUILayout.Space();
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty("targetEnvironment"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("authMode"));
+            if (config.authMode == SkillprintAuthMode.TokenProvider)
+            {
+                EditorGUILayout.HelpBox(
+                    "No API key ships in the build. Your backend mints SDK tokens "
+                        + "(POST /partners/api/sdk/token/) and the game supplies them with "
+                        + "SkillprintManager.Instance.SetTokenProvider(...) before starting a session. "
+                        + "Leave the Partner API Key fields below empty.",
+                    MessageType.Info
+                );
+            }
+            else
+            {
+                EditorGUILayout.HelpBox(
+                    "PartnerApiKey mode embeds your organization's API key in the build, where it can be "
+                        + "extracted. Use it for development; switch to TokenProvider for shipped games.",
+                    MessageType.Warning
+                );
+            }
             EditorGUILayout.Space();
 
             // --- Game Configuration ---
@@ -70,7 +89,7 @@ namespace Skillprint.SDK.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Active Configuration Preview:", EditorStyles.miniBoldLabel);
             EditorGUILayout.HelpBox(
-                $"Target Env: {config.targetEnvironment}\nActive API Key: {config.ActivePartnerApiKey}\nActive Base URL: {config.ActiveApiBaseUrl}",
+                $"Target Env: {config.targetEnvironment}\nAuth Mode: {config.authMode}\nActive API Key: {MaskKey(config.ActivePartnerApiKey)}\nActive Base URL: {config.ActiveApiBaseUrl}",
                 MessageType.None
             );
 
@@ -79,11 +98,21 @@ namespace Skillprint.SDK.Editor
             {
                 EditorGUILayout.HelpBox("Game name is required.", MessageType.Error);
             }
-            if (string.IsNullOrWhiteSpace(config.ActivePartnerApiKey))
+            if (config.RequiresPartnerApiKey && string.IsNullOrWhiteSpace(config.ActivePartnerApiKey))
             {
                 EditorGUILayout.HelpBox(
                     "The active Partner API Key is required for the selected environment.",
                     MessageType.Error
+                );
+            }
+            if (!config.RequiresPartnerApiKey
+                && (!string.IsNullOrWhiteSpace(config.productionPartnerApiKey)
+                    || !string.IsNullOrWhiteSpace(config.stagingPartnerApiKey)))
+            {
+                EditorGUILayout.HelpBox(
+                    "Auth Mode is TokenProvider, so the Partner API Key is unused — but it is still "
+                        + "serialized into your build. Clear both key fields.",
+                    MessageType.Warning
                 );
             }
             if (string.IsNullOrWhiteSpace(config.ActiveApiBaseUrl))
@@ -118,6 +147,17 @@ namespace Skillprint.SDK.Editor
             // TODO add more detailed per-parameter validation here if needed
 
             serializedObject.ApplyModifiedProperties();
+        }
+
+        private static string MaskKey(string key)
+        {
+            if (string.IsNullOrEmpty(key))
+            {
+                return "(none)";
+            }
+            int dot = key.IndexOf('.');
+            string prefix = dot > 0 ? key.Substring(0, dot) : key.Substring(0, System.Math.Min(4, key.Length));
+            return prefix + ".••••";
         }
     }
 }
