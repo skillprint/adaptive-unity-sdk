@@ -53,6 +53,7 @@ You can install the Skillprint SDK in your Unity project using one of the follow
 
    **Authentication:**
    - **Auth Mode:** `PartnerApiKey` (default) puts your API key in the build — fine for development, but anyone can extract it from a shipped game. `TokenProvider` ships **no key**: your backend mints short-lived SDK tokens instead. **Use `TokenProvider` for anything you release.** See [Shipping without an API key](#-shipping-without-an-api-key).
+   - **Token Endpoint URL:** (`TokenProvider` mode) the endpoint on your backend that mints SDK tokens. With this set, the SDK fetches tokens itself and no code is needed.
 
    **Production API Configuration:**
    - **Partner API Key:** Enter your unique API key provided by Skillprint. *(Required in `PartnerApiKey` mode; leave empty in `TokenProvider` mode.)*
@@ -333,18 +334,22 @@ app.post("/skillprint/token", requireLoggedInPlayer, async (req, res) => {
 });
 ```
 
-### 2. Give the SDK a token provider
+### 2. Point the SDK at it
 
-Set **Auth Mode** to `TokenProvider`, clear the API key fields, and register a provider before starting a session. The SDK calls it before its first request, about a minute before the token expires, and once after a `401`.
+Set **Auth Mode** to `TokenProvider`, clear the API key fields, and enter your endpoint in **Token Endpoint URL** on the `SkillprintConfig` asset. That is the whole integration for the common case: the SDK POSTs `{"playerId": ...}` to that URL and reads `token` / `expiresIn` from the reply, before its first request, about a minute before the token expires, and once after a `401`.
 
 ```csharp
-// Simplest: point the SDK at your endpoint. It POSTs {"playerId": ...} and reads token/expiresIn.
+// Nothing to call: with Token Endpoint URL set on the config asset, the SDK fetches tokens itself.
+SkillprintManager.Instance.StartGameSession("focus", MyAuth.PlayerId);
+```
+
+If the request needs your own player auth header, register the provider in code instead (this takes precedence over the config field):
+
+```csharp
 SkillprintManager.Instance.SetTokenProvider(new HttpTokenProvider(
     SkillprintManager.Instance,
     "https://api.yourgame.com/skillprint/token",
     request => request.SetRequestHeader("Authorization", "Bearer " + MyAuth.SessionToken)));
-
-SkillprintManager.Instance.StartGameSession("focus", MyAuth.PlayerId);
 ```
 
 Or plug in your own networking:

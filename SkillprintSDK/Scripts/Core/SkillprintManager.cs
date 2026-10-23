@@ -150,6 +150,22 @@ namespace Skillprint.SDK
             {
                 _auth.SetProvider(_pendingTokenProvider);
             }
+            else if (!config.RequiresPartnerApiKey && config.HasTokenEndpoint)
+            {
+                // No provider registered in code: fetch tokens from the endpoint on the config asset.
+                string endpoint = config.tokenEndpointUrl.Trim();
+                _auth.SetProvider(new HttpTokenProvider(this, endpoint));
+                Log($"Using token endpoint from SkillprintConfig: {endpoint}");
+            }
+            else if (!config.RequiresPartnerApiKey && string.IsNullOrEmpty(_pendingSdkToken))
+            {
+                Log(
+                    "Auth Mode is TokenProvider but SkillprintConfig has no Token Endpoint URL and no provider "
+                        + "was registered. Sessions will fail unless you call SetTokenProvider(...) or "
+                        + "SetSdkToken(...) (WebGL: the userToken URL parameter) before starting one.",
+                    LogLevel.Warning
+                );
+            }
             if (!string.IsNullOrEmpty(_pendingSdkToken))
             {
                 _auth.SetToken(_pendingSdkToken, _pendingSdkTokenExpiry);
