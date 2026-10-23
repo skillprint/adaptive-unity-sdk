@@ -50,6 +50,34 @@ namespace Skillprint.SDK.Editor
             EditorGUILayout.Space();
 
             // --- Production Settings ---
+            EditorGUILayout.LabelField("Session Defaults", EditorStyles.boldLabel);
+            EditorGUI.indentLevel++;
+            EditorGUILayout.PropertyField(
+                serializedObject.FindProperty("defaultTargetMood"),
+                new GUIContent("Default Target Mood")
+            );
+            EditorGUILayout.PropertyField(
+                serializedObject.FindProperty("optimizationTarget"),
+                new GUIContent("Optimization Target")
+            );
+            if (config.optimizationTarget == OptimizationTarget.Skill)
+            {
+                EditorGUILayout.PropertyField(
+                    serializedObject.FindProperty("defaultTargetSkill"),
+                    new GUIContent("Default Target Skill")
+                );
+                if (string.IsNullOrWhiteSpace(config.defaultTargetSkill))
+                {
+                    EditorGUILayout.HelpBox(
+                        "Optimization Target is Skill but no Default Target Skill is set. Sessions started "
+                            + "without an explicit skill will optimize for the mood instead.",
+                        MessageType.Warning
+                    );
+                }
+            }
+            EditorGUI.indentLevel--;
+            EditorGUILayout.Space();
+
             EditorGUILayout.LabelField("Production Environment", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
             EditorGUILayout.PropertyField(serializedObject.FindProperty("productionPartnerApiKey"));

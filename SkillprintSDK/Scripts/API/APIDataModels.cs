@@ -13,6 +13,8 @@ namespace Skillprint.SDK.API
         public string sessionId;
         public string game;
         public string targetMood;
+        public string targetSkill; // optional; stripped from the JSON when empty
+        public string optimizationTarget; // "MOOD" or "SKILL"
         public List<ParameterInfo> gameParameters;
     }
 

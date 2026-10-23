@@ -146,6 +146,8 @@ namespace Skillprint.SDK.API
         public IEnumerator StartSession(
             string sessionId,
             string targetMood,
+            string targetSkill,
+            string optimizationTarget,
             string customPlayerId,
             string gameName,
             List<ParameterInfo> gameParameters,
@@ -155,7 +157,7 @@ namespace Skillprint.SDK.API
             string url = _baseUrl + START_SESSION_ENDPOINT;
             _logger?.Invoke($"Starting session: POST {url}", SkillprintManager.LogLevel.Info);
             _logger?.Invoke(
-                $"Starting session: MOOD {targetMood}",
+                $"Starting session: MOOD {targetMood}, SKILL {(string.IsNullOrEmpty(targetSkill) ? "none" : targetSkill)}, OPTIMIZE FOR {optimizationTarget}",
                 SkillprintManager.LogLevel.Warning
             );
             if (
@@ -221,9 +223,16 @@ namespace Skillprint.SDK.API
                 sessionId = sessionId,
                 game = gameName,
                 targetMood = targetMood,
+                targetSkill = targetSkill,
+                optimizationTarget = string.IsNullOrEmpty(optimizationTarget) ? "MOOD" : optimizationTarget,
                 gameParameters = gameParameters
             };
             string jsonData = JsonUtility.ToJson(requestData);
+            if (string.IsNullOrEmpty(targetSkill))
+            {
+                // JsonUtility writes null strings as "", which fails the backend's slug validation.
+                jsonData = jsonData.Replace("\"targetSkill\":\"\",", "");
+            }
 
             yield return SendAuthorized(
                 () =>

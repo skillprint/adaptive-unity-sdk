@@ -48,6 +48,11 @@ You can install the Skillprint SDK in your Unity project using one of the follow
    **Game Configuration:**
    - **Game Name:** Enter your game's **slug** as registered in the Skillprint platform (e.g., `fruit-boom`, not `Fruit Boom`). This is the URL-friendly identifier for your game, not the display name. *(Required)*
 
+   **Session Defaults:**
+   - **Default Target Mood:** Used when `StartGameSession()` is called without a mood, and as the fallback for URL-parameter starts. A mood passed in code or in the URL takes precedence.
+   - **Optimization Target:** `Mood` (steer gameplay toward the target mood) or `Skill` (steer toward a target skill).
+   - **Default Target Skill:** Shown when Optimization Target is `Skill`. The skill slug to optimize for; ask Skillprint for your game's skill slugs.
+
    **Environment Configuration:**
    - **Target Environment:** Select `Production` or `Staging`.
 
@@ -142,8 +147,14 @@ public class MyGameController : MonoBehaviour
 Start a Skillprint session when gameplay begins. The SDK will automatically capture screenshots, send them for analysis, and poll for parameter adjustments.
 
 ```csharp
-// Start a session with a target mood and optional player ID
+// Simplest: use the Default Target Mood (and Optimization Target / Default Target Skill) from SkillprintConfig
+SkillprintManager.Instance.StartGameSession();
+
+// Or pass a target mood explicitly, with an optional player ID
 SkillprintManager.Instance.StartGameSession("focus", "player-unique-id-123");
+
+// Or optimize this session for a skill instead of a mood
+SkillprintManager.Instance.StartGameSession("focus", "player-unique-id-123", targetSkill: "timing");
 ```
 
 **Target Moods:**

@@ -354,10 +354,16 @@ namespace Skillprint.SDK
             config != null ? config.authMode : SkillprintAuthMode.PartnerApiKey;
 
         /// <summary>
-        /// Starts a new Skillprint game session.
+        /// Starts a Skillprint session. <paramref name="targetMood"/> falls back to the config asset's
+        /// Default Target Mood when null or empty. <paramref name="targetSkill"/> makes the session
+        /// optimize for that skill; when null, the config asset's Optimization Target / Default Target
+        /// Skill decide.
         /// </summary>
-        /// <param name="customPlayerId">Optional: A custom player identifier if your game uses one.</param>
-        public void StartGameSession(string targetMood, string customPlayerId = null)
+        public void StartGameSession(
+            string targetMood = null,
+            string customPlayerId = null,
+            string targetSkill = null
+        )
         {
             if (_isSessionActive)
             {
@@ -376,6 +382,24 @@ namespace Skillprint.SDK
                     LogLevel.Error
                 );
                 return;
+            }
+
+            if (string.IsNullOrWhiteSpace(targetMood))
+            {
+                targetMood = config.DefaultTargetMoodSlug;
+            }
+            if (string.IsNullOrWhiteSpace(targetSkill) && config.HasDefaultTargetSkill)
+            {
+                targetSkill = config.defaultTargetSkill.Trim();
+            }
+            string optimizationTarget = !string.IsNullOrWhiteSpace(targetSkill) ? "SKILL" : "MOOD";
+            if (config.optimizationTarget == OptimizationTarget.Skill && string.IsNullOrWhiteSpace(targetSkill))
+            {
+                Log(
+                    "Optimization Target is Skill but no target skill was given and Default Target Skill is empty; "
+                        + "optimizing for mood instead.",
+                    LogLevel.Warning
+                );
             }
 
             _currentSessionId = Guid.NewGuid().ToString();
@@ -417,6 +441,8 @@ namespace Skillprint.SDK
                 _apiClient.StartSession(
                     _currentSessionId,
                     targetMood,
+                    targetSkill,
+                    optimizationTarget,
                     customPlayerId,
                     config.gameName,
                     parameterInfos,
@@ -753,10 +779,10 @@ namespace Skillprint.SDK
         // <summary>
         /// Starts a Skillprint session with automatic URL parameter detection for WebGL builds
         /// </summary>
-        /// <param name="fallbackMood">Mood to use if not found in URL parameters (default: "focus")</param>
+        /// <param name="fallbackMood">Mood to use if not found in URL parameters (default: the config asset's Default Target Mood)</param>
         /// <param name="fallbackPlayerId">Player ID to use if not found in URL parameters (optional)</param>
         public void StartGameSessionFromUrl(
-            string fallbackMood = "relax",
+            string fallbackMood = null,
             string fallbackPlayerId = null
         )
         {
@@ -771,7 +797,7 @@ namespace Skillprint.SDK
         /// <param name="overrideMood">Force this mood regardless of URL parameters</param>
         /// <param name="overridePlayerId">Force this player ID regardless of URL parameters</param>
         public void StartGameSessionWithOverrides(
-            string fallbackMood = "relax",
+            string fallbackMood = null,
             string fallbackPlayerId = null,
             string overrideMood = null,
             string overridePlayerId = null
