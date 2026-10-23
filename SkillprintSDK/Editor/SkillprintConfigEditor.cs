@@ -19,9 +19,14 @@ namespace Skillprint.SDK.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("authMode"));
             if (config.authMode == SkillprintAuthMode.TokenProvider)
             {
+                EditorGUILayout.PropertyField(
+                    serializedObject.FindProperty("tokenEndpointUrl"),
+                    new GUIContent("Token Endpoint URL")
+                );
                 EditorGUILayout.HelpBox(
                     "No API key ships in the build. Your backend mints SDK tokens "
-                        + "(POST /partners/api/sdk/token/) and the game supplies them with "
+                        + "(POST /partners/api/sdk/token/). Enter your backend's token endpoint above and "
+                        + "the SDK fetches tokens from it automatically, or leave it empty and call "
                         + "SkillprintManager.Instance.SetTokenProvider(...) before starting a session. "
                         + "Leave the Partner API Key fields below empty.",
                     MessageType.Info
@@ -121,6 +126,26 @@ namespace Skillprint.SDK.Editor
                     "The active API Base URL is required for the selected environment.",
                     MessageType.Error
                 );
+            }
+            if (!config.RequiresPartnerApiKey && !config.HasTokenEndpoint)
+            {
+                EditorGUILayout.HelpBox(
+                    "Auth Mode is TokenProvider but no Token Endpoint URL is set. The game must call "
+                        + "SkillprintManager.SetTokenProvider(...) or SetSdkToken(...) before starting a session.",
+                    MessageType.Warning
+                );
+            }
+            if (!config.RequiresPartnerApiKey && config.HasTokenEndpoint)
+            {
+                string url = config.tokenEndpointUrl.Trim();
+                bool isLocal = url.StartsWith("http://localhost") || url.StartsWith("http://127.0.0.1");
+                if (!url.StartsWith("https://") && !isLocal)
+                {
+                    EditorGUILayout.HelpBox(
+                        "Token Endpoint URL should use https:// (tokens are sent back over this connection).",
+                        MessageType.Warning
+                    );
+                }
             }
             if (config.screenshotIntervalSeconds <= 0)
             {

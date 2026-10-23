@@ -24,10 +24,19 @@ namespace Skillprint.SDK
         [Tooltip(
             "PartnerApiKey: the API key below ships inside your build. Development/internal builds only.\n"
                 + "TokenProvider: no key in the build. Your backend mints short-lived SDK tokens "
-                + "(POST /partners/api/sdk/token/) and the game supplies them via "
+                + "(POST /partners/api/sdk/token/); set Token Endpoint URL below, or supply tokens via "
                 + "SkillprintManager.SetTokenProvider(...) or SetSdkToken(...). Recommended for shipped games."
         )]
         public SkillprintAuthMode authMode = SkillprintAuthMode.PartnerApiKey;
+
+        [Tooltip(
+            "TokenProvider mode only. URL of the endpoint on YOUR backend that mints Skillprint SDK tokens. "
+                + "The SDK POSTs {\"playerId\": ...} to it and expects Skillprint's mint response "
+                + "({\"token\", \"expiresIn\", ...}) back, which your endpoint can forward as-is. "
+                + "Leave empty if you register a provider in code with SkillprintManager.SetTokenProvider(...) "
+                + "or push a token with SetSdkToken(...)."
+        )]
+        public string tokenEndpointUrl;
 
         [Header("Production API Configuration")]
         [Tooltip("Your Skillprint Partner API Key for the PRODUCTION environment. Only used when Auth Mode is PartnerApiKey; leave empty in TokenProvider mode so no key ships in the build.")]
@@ -91,6 +100,9 @@ namespace Skillprint.SDK
 
         /// <summary>True when this configuration needs a partner API key in the build.</summary>
         public bool RequiresPartnerApiKey => authMode == SkillprintAuthMode.PartnerApiKey;
+
+        /// <summary>True when a backend token endpoint is configured (TokenProvider mode).</summary>
+        public bool HasTokenEndpoint => !string.IsNullOrWhiteSpace(tokenEndpointUrl);
 
         public string ActiveApiBaseUrl
         {
