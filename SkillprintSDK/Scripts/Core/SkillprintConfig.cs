@@ -38,6 +38,26 @@ namespace Skillprint.SDK
         )]
         public string tokenEndpointUrl;
 
+        [Header("Session Defaults")]
+        [Tooltip(
+            "Target mood used when StartGameSession is called without one, and as the fallback for "
+                + "StartGameSessionFromUrl when the page passes no mood. Any mood passed in code or in the "
+                + "URL (?mood=...) takes precedence."
+        )]
+        public Mood defaultTargetMood = Mood.focus;
+
+        [Tooltip(
+            "What the backend optimizes sessions for. Mood: steer gameplay toward the target mood. "
+                + "Skill: steer toward the target skill below (ask Skillprint for your game's skill slugs)."
+        )]
+        public OptimizationTarget optimizationTarget = OptimizationTarget.Mood;
+
+        [Tooltip(
+            "Skill slug used when Optimization Target is Skill and StartGameSession is called without a "
+                + "skill. Leave empty when optimizing for mood."
+        )]
+        public string defaultTargetSkill;
+
         [Header("Production API Configuration")]
         [Tooltip("Your Skillprint Partner API Key for the PRODUCTION environment. Only used when Auth Mode is PartnerApiKey; leave empty in TokenProvider mode so no key ships in the build.")]
         public string productionPartnerApiKey;
@@ -103,6 +123,13 @@ namespace Skillprint.SDK
 
         /// <summary>True when a backend token endpoint is configured (TokenProvider mode).</summary>
         public bool HasTokenEndpoint => !string.IsNullOrWhiteSpace(tokenEndpointUrl);
+
+        /// <summary>The default target mood as the slug the API expects (e.g. "focus").</summary>
+        public string DefaultTargetMoodSlug => defaultTargetMood.ToString();
+
+        /// <summary>True when sessions optimize for a skill and a default skill slug is set.</summary>
+        public bool HasDefaultTargetSkill =>
+            optimizationTarget == OptimizationTarget.Skill && !string.IsNullOrWhiteSpace(defaultTargetSkill);
 
         public string ActiveApiBaseUrl
         {

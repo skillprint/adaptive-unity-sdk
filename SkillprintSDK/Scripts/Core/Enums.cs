@@ -20,4 +20,11 @@ namespace Skillprint.SDK
         empathy,
         awe,
     }
+
+    /// <summary>What the backend optimizes a session for: the target mood, or a target skill.</summary>
+    public enum OptimizationTarget
+    {
+        Mood,
+        Skill,
+    }
 }

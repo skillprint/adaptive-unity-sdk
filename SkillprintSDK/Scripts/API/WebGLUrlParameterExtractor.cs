@@ -156,13 +156,13 @@ namespace Skillprint.SDK.API
         /// Starts a Skillprint session with automatic URL parameter detection for WebGL
         /// </summary>
         /// <param name="manager">The SkillprintManager instance</param>
-        /// <param name="fallbackMood">Mood to use if not found in URL (default: "focus")</param>
+        /// <param name="fallbackMood">Mood to use if not found in URL (default: the config asset's Default Target Mood)</param>
         /// <param name="fallbackPlayerId">Player ID to use if not found in URL (optional)</param>
         /// <param name="overrideMood">Mood to use regardless of URL parameters (optional)</param>
         /// <param name="overridePlayerId">Player ID to use regardless of URL parameters (optional)</param>
         public static void StartSessionWithUrlParams(
             SkillprintManager manager,
-            string fallbackMood = "focus",
+            string fallbackMood = null,
             string fallbackPlayerId = null,
             string overrideMood = null,
             string overridePlayerId = null
@@ -172,6 +172,12 @@ namespace Skillprint.SDK.API
             {
                 Debug.LogError("[SkillprintSDK] SkillprintManager is null. Cannot start session.");
                 return;
+            }
+            if (string.IsNullOrEmpty(fallbackMood))
+            {
+                fallbackMood = manager.config != null
+                    ? manager.config.DefaultTargetMoodSlug
+                    : Mood.focus.ToString();
             }
 
             string targetMood = overrideMood;
