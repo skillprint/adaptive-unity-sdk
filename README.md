@@ -215,6 +215,43 @@ When paused:
 
 ---
 
+### 5. Apply updates at wave or level boundaries
+
+Parameter callbacks fire whenever a poll lands, which may be mid-wave. Games that change
+settings only at natural boundaries can ignore the callbacks' timing and read the latest
+targets when the next wave starts:
+
+```csharp
+// Subscribe once; fires after every poll that applied at least one update.
+SkillprintManager.Instance.OnParameterUpdatesReceived += values => pendingDirty = true;
+
+// At wave start:
+if (SkillprintManager.Instance.TryGetLatestParameterValue<int>("totalNodesCount", out int nodes))
+    nextWave.nodeCount = nodes;
+```
+
+`OnSessionStarted` and `OnSessionStartFailed` report the outcome of `StartGameSession`, and
+`IsSessionActive` tells you whether a session is running. Values outside a parameter's declared
+range are clamped into it (and logged) rather than dropped.
+
+### 6. Describe a slice of play in text
+
+Screenshots show the backend what the screen looked like; `SendTextChunk` tells it what
+happened. Send the measured outcome of a wave or level and the backend's observer scores it in
+text mode, then its controller decides the next parameter values with that outcome in context.
+The values arrive through the normal poll a few seconds later.
+
+```csharp
+string digest =
+    "game: Trails  wave: 7  target: focus\n" +
+    "nodes: 12 (alternating), rotation: 4.0 deg/s, arrow help: 1\n" +
+    "result: completed in 21.4s (ideal 18.0s), errors: 2, path efficiency: 0.81";
+SkillprintManager.Instance.SendTextChunk(digest, "[{\"score\": 7}]", durationMs: 21400);
+```
+
+The optional second argument is a JSON array of game states; a `score` in the last one becomes
+the session score.
+
 ## 📊 User Profile Graph (Visualization)
 
 The Skillprint Unity SDK includes a modular circular profile graph component (`SkillprintGraphRenderer`) and a test harness widget (`SkillprintProfileHarness`) to retrieve player profile and progression data and visualize it dynamically in your UI.

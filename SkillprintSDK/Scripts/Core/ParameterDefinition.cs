@@ -47,6 +47,24 @@ namespace Skillprint.SDK
             return false;
         }
 
+        /// <summary>
+        /// Returns <paramref name="value"/> pulled into [minValue, maxValue] for numeric types.
+        /// Booleans and values of the wrong type are returned unchanged.
+        /// </summary>
+        public object Clamp(object value)
+        {
+            switch (type)
+            {
+                case ParameterType.Float:
+                    if (value is float f) return Mathf.Clamp(f, minValue, maxValue);
+                    break;
+                case ParameterType.Integer:
+                    if (value is int i) return Mathf.Clamp(i, Mathf.CeilToInt(minValue), Mathf.FloorToInt(maxValue));
+                    break;
+            }
+            return value;
+        }
+
         public object ConvertValue(object rawValue)
         {
             try

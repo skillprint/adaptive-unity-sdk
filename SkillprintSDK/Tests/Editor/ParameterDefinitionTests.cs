@@ -11,6 +11,48 @@ namespace Skillprint.SDK.Tests
     [TestFixture]
     public class ParameterDefinitionTests
     {
+        // ───────────────────────── Clamp ─────────────────────────
+
+        [Test]
+        public void Clamp_Float_AboveMax_ReturnsMax()
+        {
+            var def = MakeFloat("speed"); // 0..10
+            Assert.AreEqual(def.maxValue, (float)def.Clamp(99f), 0.0001f);
+        }
+
+        [Test]
+        public void Clamp_Float_BelowMin_ReturnsMin()
+        {
+            var def = MakeFloat("speed");
+            Assert.AreEqual(def.minValue, (float)def.Clamp(-5f), 0.0001f);
+        }
+
+        [Test]
+        public void Clamp_Float_InRange_Unchanged()
+        {
+            var def = MakeFloat("speed");
+            Assert.AreEqual(2.5f, (float)def.Clamp(2.5f), 0.0001f);
+        }
+
+        [Test]
+        public void Clamp_Integer_UsesIntegerBounds()
+        {
+            var def = new ParameterDefinition
+            {
+                parameterName = "nodes", type = ParameterType.Integer, minValue = 5f, maxValue = 25f,
+            };
+            Assert.AreEqual(25, (int)def.Clamp(40));
+            Assert.AreEqual(5, (int)def.Clamp(1));
+            Assert.AreEqual(12, (int)def.Clamp(12));
+        }
+
+        [Test]
+        public void Clamp_Boolean_Unchanged()
+        {
+            var def = new ParameterDefinition { parameterName = "flag", type = ParameterType.Boolean };
+            Assert.AreEqual(true, (bool)def.Clamp(true));
+        }
+
         // ───────────────────────── ConvertValue ─────────────────────────
 
         [Test]
