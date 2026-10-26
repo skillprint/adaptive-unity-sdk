@@ -22,9 +22,10 @@ namespace Skillprint.SDK.API
             {
                 Uri uri = new Uri(Application.absoluteURL);
                 var queryParams = ParseQueryString(uri.Query);
+                // null (not empty) so callers can chain fallbacks with ??
                 return queryParams.ContainsKey(parameterName)
                     ? queryParams[parameterName]
-                    : string.Empty;
+                    : null;
             }
             catch (Exception ex)
             {

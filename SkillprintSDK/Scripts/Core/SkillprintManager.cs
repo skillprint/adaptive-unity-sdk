@@ -40,6 +40,45 @@ namespace Skillprint.SDK
         private Dictionary<string, ParameterDefinition> _registeredParameters =
             new Dictionary<string, ParameterDefinition>();
 
+        // Latest value the backend sent for each registered parameter (after conversion
+        // and clamping), so games that apply changes at their own boundaries (a wave,
+        // a level) can read the current targets instead of reacting to every poll.
+        private readonly Dictionary<string, object> _latestParameterValues =
+            new Dictionary<string, object>();
+
+        /// <summary>Raised with the session id once the backend has accepted the session.</summary>
+        public event Action<string> OnSessionStarted;
+
+        /// <summary>Raised with the error text when the session could not be started.</summary>
+        public event Action<string> OnSessionStartFailed;
+
+        /// <summary>
+        /// Raised after a poll applied one or more parameter updates. The dictionary holds every
+        /// value received in that poll, keyed by parameter name, already converted and clamped.
+        /// </summary>
+        public event Action<IReadOnlyDictionary<string, object>> OnParameterUpdatesReceived;
+
+        /// <summary>True between a successful <see cref="StartGameSession"/> and <see cref="StopGameSession"/>.</summary>
+        public bool IsSessionActive => _isSessionActive;
+
+        /// <summary>The latest converted value received for every parameter, keyed by name.</summary>
+        public IReadOnlyDictionary<string, object> LatestParameterValues => _latestParameterValues;
+
+        /// <summary>
+        /// Reads the latest value the backend sent for <paramref name="parameterName"/>.
+        /// Returns false when nothing has been received for it yet or the type does not match.
+        /// </summary>
+        public bool TryGetLatestParameterValue<T>(string parameterName, out T value)
+        {
+            if (_latestParameterValues.TryGetValue(parameterName, out object raw) && raw is T typed)
+            {
+                value = typed;
+                return true;
+            }
+            value = default;
+            return false;
+        }
+
         public string GetCurrentSessionId()
         {
             return _currentSessionId;
@@ -405,6 +444,7 @@ namespace Skillprint.SDK
             _currentSessionId = Guid.NewGuid().ToString();
             _isSessionActive = true;
             _isTransmissionPaused = false;
+            _latestParameterValues.Clear();
             Log(
                 $"Starting game session for {config.targetEnvironment} environment.",
                 LogLevel.Info
@@ -457,12 +497,14 @@ namespace Skillprint.SDK
                             _screenshotCaptureCoroutine = StartCoroutine(ScreenshotCaptureLoop());
                             _screenshotPostCoroutine = StartCoroutine(ScreenshotPostLoop());
                             _pollResultsCoroutine = StartCoroutine(PollResultsLoop());
+                            SafeInvoke(() => OnSessionStarted?.Invoke(_currentSessionId));
                         }
                         else
                         {
                             Log($"Failed to start Skillprint session: {response}", LogLevel.Error);
                             _isSessionActive = false;
                             _currentSessionId = null;
+                            SafeInvoke(() => OnSessionStartFailed?.Invoke(response));
                         }
                     }
                 )
@@ -527,6 +569,56 @@ namespace Skillprint.SDK
 
             _currentSessionId = null;
             Log("Skillprint session stopped.");
+        }
+
+        /// <summary>
+        /// Sends a text description of a slice of play (for example the measured outcome of a wave
+        /// or level) to the current session. The backend scores it in text mode and uses it to decide
+        /// the next parameter values, which arrive through the normal poll. Screenshots keep flowing
+        /// independently. <paramref name="gameStatesJson"/> is an optional JSON array of state objects
+        /// such as <c>[{"score": 12}]</c>.
+        /// </summary>
+        public void SendTextChunk(
+            string digest,
+            string gameStatesJson = null,
+            int durationMs = 0,
+            Action<bool, string> callback = null
+        )
+        {
+            if (!_isSessionActive || string.IsNullOrEmpty(_currentSessionId))
+            {
+                Log("No active session; text chunk not sent.", LogLevel.Warning);
+                callback?.Invoke(false, "No active session.");
+                return;
+            }
+            StartCoroutine(
+                _apiClient.PostTextChunk(
+                    _currentSessionId,
+                    digest,
+                    gameStatesJson,
+                    durationMs,
+                    (success, response) =>
+                    {
+                        if (success)
+                            Log($"Text chunk accepted. Response: {response}");
+                        else
+                            Log($"Text chunk rejected: {response}", LogLevel.Error);
+                        callback?.Invoke(success, response);
+                    }
+                )
+            );
+        }
+
+        private void SafeInvoke(Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception e)
+            {
+                Log($"Listener threw: {e}", LogLevel.Error);
+            }
         }
 
         private IEnumerator ScreenshotCaptureLoop()
@@ -652,6 +744,7 @@ namespace Skillprint.SDK
 
         private void ApplyParameterUpdates(List<API.ParameterUpdateResult> updates)
         {
+            var received = new Dictionary<string, object>();
             foreach (var update in updates)
             {
                 // Use GetParsedValue() which handles null, empty, and
@@ -693,6 +786,23 @@ namespace Skillprint.SDK
 
                     object convertedValue = paramDef.ConvertValue(parsedValue);
 
+                    // Out-of-range numbers are clamped into the declared range rather than
+                    // dropped: a backend that overshoots should still move the game toward
+                    // the edge of what it allows.
+                    if (convertedValue != null && !paramDef.IsValid(convertedValue))
+                    {
+                        object clamped = paramDef.Clamp(convertedValue);
+                        if (paramDef.IsValid(clamped))
+                        {
+                            Log(
+                                $"Parameter '{paramDef.parameterName}' value {convertedValue} is outside " +
+                                $"{paramDef.minValue}-{paramDef.maxValue}; clamped to {clamped}.",
+                                LogLevel.Warning
+                            );
+                            convertedValue = clamped;
+                        }
+                    }
+
                     if (convertedValue != null && paramDef.IsValid(convertedValue))
                     {
                         try
@@ -700,6 +810,8 @@ namespace Skillprint.SDK
                             Log(
                                 $"Applying update: {paramDef.parameterName} = {convertedValue} (Type: {paramDef.type})"
                             );
+                            _latestParameterValues[paramDef.parameterName] = convertedValue;
+                            received[paramDef.parameterName] = convertedValue;
                             paramDef.UpdateAction(convertedValue);
                         }
                         catch (Exception e)
@@ -727,6 +839,11 @@ namespace Skillprint.SDK
                         LogLevel.Warning
                     );
                 }
+            }
+
+            if (received.Count > 0)
+            {
+                SafeInvoke(() => OnParameterUpdatesReceived?.Invoke(received));
             }
         }
 

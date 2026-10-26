@@ -423,6 +423,69 @@ namespace Skillprint.SDK.API
             }
         }
 
+        /// <summary>
+        /// Uploads a slice of play described in text instead of screenshots: a <paramref name="digest"/>
+        /// the backend's observer reads in text mode (and that the controller uses to decide the next
+        /// parameter values). Use it at natural boundaries such as the end of a wave or level, with the
+        /// measured outcome of that slice. <paramref name="gameStatesJson"/> is an optional JSON array of
+        /// state objects (e.g. <c>[{"score": 12}]</c>); a <c>score</c> in the last one updates the session score.
+        /// </summary>
+        public IEnumerator PostTextChunk(
+            string sessionId,
+            string digest,
+            string gameStatesJson,
+            int durationMs,
+            Action<bool, string> callback
+        )
+        {
+            string url =
+                $"{_baseUrl}{UPLOAD_SCREENSHOTS_ENDPOINT.Replace("{sessionId}", sessionId)}";
+            if (string.IsNullOrWhiteSpace(digest))
+            {
+                callback(false, "A text chunk needs a non-empty digest.");
+                yield break;
+            }
+
+            var sb = new StringBuilder();
+            sb.Append("{\"digest\":").Append(JsonText.Quote(digest));
+            sb.Append(",\"is_last_chunk\":false");
+            if (durationMs > 0)
+            {
+                sb.Append(",\"duration_ms\":").Append(durationMs);
+            }
+            if (!string.IsNullOrWhiteSpace(gameStatesJson))
+            {
+                sb.Append(",\"game_states\":").Append(gameStatesJson.Trim());
+            }
+            sb.Append("}");
+            string json = sb.ToString();
+
+            _logger?.Invoke(
+                $"Posting text chunk ({digest.Length} chars): POST {url}",
+                SkillprintManager.LogLevel.Info
+            );
+
+            yield return SendAuthorized(
+                () => JsonRequest(url, "POST", json),
+                webRequest =>
+                {
+                    if (webRequest.result == UnityWebRequest.Result.Success)
+                    {
+                        callback(true, webRequest.downloadHandler.text);
+                    }
+                    else
+                    {
+                        _logger?.Invoke(
+                            $"PostTextChunk Error: {webRequest.error}. Response: {webRequest.downloadHandler.text}",
+                            SkillprintManager.LogLevel.Error
+                        );
+                        callback(false, ErrorText(webRequest));
+                    }
+                },
+                authError => callback(false, authError)
+            );
+        }
+
         public IEnumerator PollParameterResults(
             string sessionId,
             Action<bool, List<ParameterUpdateResult>> callback
