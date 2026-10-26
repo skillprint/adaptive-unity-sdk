@@ -226,8 +226,8 @@ targets when the next wave starts:
 SkillprintManager.Instance.OnParameterUpdatesReceived += values => pendingDirty = true;
 
 // At wave start:
-if (SkillprintManager.Instance.TryGetLatestParameterValue<int>("totalNodesCount", out int nodes))
-    nextWave.nodeCount = nodes;
+if (SkillprintManager.Instance.TryGetLatestParameterValue<int>("enemyCount", out int enemies))
+    nextWave.enemyCount = enemies;
 ```
 
 `OnSessionStarted` and `OnSessionStartFailed` report the outcome of `StartGameSession`, and
@@ -243,9 +243,9 @@ The values arrive through the normal poll a few seconds later.
 
 ```csharp
 string digest =
-    "game: Trails  wave: 7  target: focus\n" +
-    "nodes: 12 (alternating), rotation: 4.0 deg/s, arrow help: 1\n" +
-    "result: completed in 21.4s (ideal 18.0s), errors: 2, path efficiency: 0.81";
+    "wave: 7  target: focus\n" +
+    "setup: 12 enemies, spawn rate 1.4/s, power-ups on\n" +
+    "result: cleared in 21.4s (par 18.0s), hits taken: 2, accuracy: 0.81";
 SkillprintManager.Instance.SendTextChunk(digest, "[{\"score\": 7}]", durationMs: 21400);
 ```
 
