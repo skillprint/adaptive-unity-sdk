@@ -890,7 +890,9 @@ namespace Skillprint.SDK
 
         public void Log(string message, LogLevel level = LogLevel.Info)
         {
-            if (!config.enableDebugLogging && level == LogLevel.Info)
+            // config is null until it's assigned or Initialize runs; calls such as
+            // PauseScreenshotTransmission can come before that.
+            if (level == LogLevel.Info && (config == null || !config.enableDebugLogging))
                 return;
 
             switch (level)

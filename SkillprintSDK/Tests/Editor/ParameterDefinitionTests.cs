@@ -83,6 +83,23 @@ namespace Skillprint.SDK.Tests
         }
 
         [Test]
+        public void ConvertValue_Float_FromString_CommaDecimalCulture()
+        {
+            var def = MakeFloat("speed");
+            var original = System.Threading.Thread.CurrentThread.CurrentCulture;
+            try
+            {
+                System.Threading.Thread.CurrentThread.CurrentCulture =
+                    new System.Globalization.CultureInfo("de-DE");
+                Assert.AreEqual(0.75f, (float)def.ConvertValue("0.75"), 0.0001f);
+            }
+            finally
+            {
+                System.Threading.Thread.CurrentThread.CurrentCulture = original;
+            }
+        }
+
+        [Test]
         public void ConvertValue_Float_FromDouble()
         {
             var def = MakeFloat("speed");

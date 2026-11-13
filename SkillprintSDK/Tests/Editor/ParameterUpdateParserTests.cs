@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Globalization;
+using System.Threading;
 using NUnit.Framework;
 using Skillprint.SDK.API;
 
@@ -83,6 +85,59 @@ namespace Skillprint.SDK.Tests
 
             Assert.IsNotNull(results);
             Assert.AreEqual(2, results.Count);
+        }
+
+        // ───────────── Live poll response ──────────────
+        // What GET /games/api/sessions/{id}/ returns: the whole session, compact and
+        // camelCased, with telemetry before parameterUpdates and each update
+        // repeating its value under the parameter's own name.
+
+        private const string SessionResponse =
+            @"{""sessionId"":""3f2b"",""game"":""mega-jump"",""telemetry"":[{""tips"":{},""adjustment"":{""gameSlug"":""mega-jump"",""parameterName"":""speed"",""parameterValue"":0.4}}],""state"":""OPEN"",""gameplayTips"":""Jump earlier"",""parameterUpdates"":[{""parameterName"":""speed"",""newValue"":0.5,""speed"":0.5},{""parameterName"":""level"",""newValue"":3,""level"":3}],""sessionNumber"":2}";
+
+        [Test]
+        public void ParseFromJson_SessionResponse_ParsesValues()
+        {
+            List<ParameterUpdateResult> results = ParameterUpdateParser.ParseFromJson(SessionResponse);
+
+            Assert.AreEqual(2, results.Count);
+            Assert.AreEqual("speed", results[0].parameterName);
+            Assert.AreEqual(0.5f, System.Convert.ToSingle(results[0].GetParsedValue()), 0.0001f);
+            Assert.AreEqual("level", results[1].parameterName);
+            Assert.AreEqual(3, System.Convert.ToInt32(results[1].GetParsedValue()));
+        }
+
+        [Test]
+        public void ParseFromJson_SessionResponse_CommaDecimalCulture_KeepsDecimalPoint()
+        {
+            // Players whose locale writes 0,5 must still get 0.5, not 5.
+            var original = Thread.CurrentThread.CurrentCulture;
+            try
+            {
+                Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+                List<ParameterUpdateResult> results = ParameterUpdateParser.ParseFromJson(SessionResponse);
+
+                Assert.AreEqual(2, results.Count);
+                float speed = System.Convert.ToSingle(
+                    results[0].GetParsedValue(),
+                    CultureInfo.InvariantCulture
+                );
+                Assert.AreEqual(0.5f, speed, 0.0001f);
+            }
+            finally
+            {
+                Thread.CurrentThread.CurrentCulture = original;
+            }
+        }
+
+        [Test]
+        public void ParseFromJson_NullParameterUpdates_IgnoresLaterArray()
+        {
+            string json = @"{""parameterUpdates"":null,""history"":[{""parameterName"":""speed"",""newValue"":1}]}";
+
+            List<ParameterUpdateResult> results = ParameterUpdateParser.ParseFromJson(json);
+
+            Assert.AreEqual(0, results.Count);
         }
 
         // ───────────── Edge cases ──────────────

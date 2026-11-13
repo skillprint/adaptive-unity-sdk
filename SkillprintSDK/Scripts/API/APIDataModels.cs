@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Reflection;
 using UnityEngine;
 
@@ -210,35 +211,22 @@ namespace Skillprint.SDK.API
         public static List<ParameterUpdateResult> ParseFromJson(string jsonResponse)
         {
             List<ParameterUpdateResult> results = new List<ParameterUpdateResult>();
+            if (string.IsNullOrWhiteSpace(jsonResponse))
+                return results;
 
             try
             {
-                // First try to parse as PollResultsResponse
-                // PollResultsResponse response = JsonUtility.FromJson<PollResultsResponse>(
-                //     jsonResponse
-                // );
-                // if (response?.parameterUpdates != null)
-                // {
-                //     return EnhanceParameterUpdates(response.parameterUpdates, jsonResponse);
-                // }
+                // Both shapes go through the same per-object parser. JsonUtility alone
+                // can't be used here: it never fills ParameterUpdateResult.newValue,
+                // because that field is an `object`.
+                string trimmed = jsonResponse.Trim();
 
-                // If that fails, try parsing as direct array wrapped in an object
-                if (jsonResponse.Trim().StartsWith("["))
-                {
-                    string wrappedJson = $"{{\"parameterUpdates\":{jsonResponse}}}";
-                    PollResultsResponse wrappedResponse = JsonUtility.FromJson<PollResultsResponse>(
-                        wrappedJson
-                    );
-                    if (wrappedResponse?.parameterUpdates != null)
-                    {
-                        return EnhanceParameterUpdates(
-                            wrappedResponse.parameterUpdates,
-                            jsonResponse
-                        );
-                    }
-                }
+                // A bare array: [{"parameterName":"speed","newValue":0.5}, ...]
+                if (trimmed.StartsWith("["))
+                    return ParseParameterArray(trimmed);
 
-                // Last resort: try to extract parameter updates from the raw JSON manually
+                // The session object the poll endpoint returns, which carries the
+                // array under "parameterUpdates".
                 return ParseParameterUpdatesManually(jsonResponse);
             }
             catch (Exception ex)
@@ -250,32 +238,6 @@ namespace Skillprint.SDK.API
             return results;
         }
 
-        private static List<ParameterUpdateResult> EnhanceParameterUpdates(
-            List<ParameterUpdateResult> updates,
-            string originalJson
-        )
-        {
-            // Add debugging information and enhance parsing
-            foreach (var update in updates)
-            {
-                if (update != null)
-                {
-                    // Store original JSON for debugging
-                    var field = typeof(ParameterUpdateResult).GetField(
-                        "rawJson",
-                        BindingFlags.NonPublic | BindingFlags.Instance
-                    );
-                    field?.SetValue(update, originalJson);
-
-                    Debug.Log(
-                        $"[SkillprintSDK] [DEBUG] Enhanced update - Name: {update.parameterName}, Raw Value: {update.newValue}, Parsed Value: {update.GetParsedValue()}"
-                    );
-                }
-            }
-
-            return updates;
-        }
-
         private static List<ParameterUpdateResult> ParseParameterUpdatesManually(
             string jsonResponse
         )
@@ -284,13 +246,10 @@ namespace Skillprint.SDK.API
 
             try
             {
-                // Look for parameterUpdates array in the JSON
-                int paramUpdatesStart = jsonResponse.IndexOf("\"parameterUpdates\":");
-                if (paramUpdatesStart == -1)
-                    return results;
-
-                int arrayStart = jsonResponse.IndexOf("[", paramUpdatesStart);
-                if (arrayStart == -1)
+                // Look for the parameterUpdates array in the JSON. A null or
+                // non-array value means no updates, not "the next array along".
+                int arrayStart = FindValueStart(jsonResponse, "parameterUpdates");
+                if (arrayStart == -1 || jsonResponse[arrayStart] != '[')
                     return results;
 
                 int arrayEnd = FindMatchingBracket(jsonResponse, arrayStart);
@@ -405,48 +364,8 @@ namespace Skillprint.SDK.API
 
             Debug.Log($"[SkillprintSDK] Parsing single parameter update: {objJson}");
 
-            // Try JsonUtility first
-            try
-            {
-                ParameterUpdateResult result = JsonUtility.FromJson<ParameterUpdateResult>(objJson);
-                // ****** ADD THIS DEBUG LOG ******
-                if (result != null)
-                {
-                    Debug.Log(
-                        $"[SkillprintSDK] JsonUtility result - Name: {result.parameterName}, NewValue: {result.newValue ?? "null"}, NewValue Type: {result.newValue?.GetType().Name ?? "null"}"
-                    );
-                }
-                else
-                {
-                    Debug.LogWarning("[SkillprintSDK] JsonUtility returned null result.");
-                }
-                // ****** END ADDED DEBUG LOG ******
-                // if (result != null && !string.IsNullOrEmpty(result.parameterName))
-                // {
-                //     return result;
-                // }
-                if (
-                    result != null
-                    && !string.IsNullOrEmpty(result.parameterName)
-                    && result.newValue != null
-                ) // MODIFIED: Check newValue too
-                {
-                    // Debug.Log("[SkillprintSDK] JsonUtility parsing successful for item (including newValue).");
-                    return result;
-                }
-                // If we reach here, either result is null, parameterName is empty, OR NEWVALUE IS NULL
-                Debug.LogWarning(
-                    $"[SkillprintSDK] JsonUtility parsing produced incomplete result (newValue is null or parameterName missing) for '{objJson}'. Falling back to manual parsing."
-                );
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning(
-                    $"[SkillprintSDK] JsonUtility parsing failed, trying manual: {ex.Message}"
-                );
-            }
-
-            // Manual parsing as fallback
+            // Not JsonUtility: it never fills newValue (an `object` field), so its
+            // result could never be used.
             return ParseParameterUpdateManually(objJson);
         }
 
@@ -480,20 +399,43 @@ namespace Skillprint.SDK.API
             return result;
         }
 
+        /// <summary>
+        /// Index of the first character of the value that follows <c>"key"</c>,
+        /// allowing whitespace on either side of the colon, or -1 when the key
+        /// is absent or has no value after it.
+        /// </summary>
+        private static int FindValueStart(string json, string key)
+        {
+            string quotedKey = $"\"{key}\"";
+            int from = 0;
+            while (from < json.Length)
+            {
+                int keyIndex = json.IndexOf(quotedKey, from, StringComparison.Ordinal);
+                if (keyIndex == -1)
+                    return -1;
+
+                int i = keyIndex + quotedKey.Length;
+                while (i < json.Length && char.IsWhiteSpace(json[i]))
+                    i++;
+
+                if (i < json.Length && json[i] == ':')
+                {
+                    i++;
+                    while (i < json.Length && char.IsWhiteSpace(json[i]))
+                        i++;
+                    return i < json.Length ? i : -1;
+                }
+
+                // The match was a string value equal to the key, not a key.
+                from = keyIndex + 1;
+            }
+            return -1;
+        }
+
         private static string ExtractJsonValue(string json, string key)
         {
-            string searchPattern = $"\"{key}\":";
-            int keyIndex = json.IndexOf(searchPattern);
-            if (keyIndex == -1)
-                return null;
-
-            int valueStart = keyIndex + searchPattern.Length;
-
-            // Skip whitespace
-            while (valueStart < json.Length && char.IsWhiteSpace(json[valueStart]))
-                valueStart++;
-
-            if (valueStart >= json.Length)
+            int valueStart = FindValueStart(json, key);
+            if (valueStart == -1)
                 return null;
 
             // Find the end of the value
@@ -530,8 +472,17 @@ namespace Skillprint.SDK.API
                 return valueStr.Substring(1, valueStr.Length - 2);
             }
 
-            // Try to parse as number
-            if (float.TryParse(valueStr, out float floatVal))
+            // Try to parse as number. JSON numbers always use '.', so parse with the
+            // invariant culture: under a comma-decimal culture (de-DE, fr-FR, ...)
+            // the default overload reads "0.5" as 5.
+            if (
+                float.TryParse(
+                    valueStr,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float floatVal
+                )
+            )
             {
                 // If it's a whole number, return as int
                 if (floatVal == (int)floatVal)
