@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace Skillprint.SDK.API
@@ -39,6 +40,16 @@ namespace Skillprint.SDK.API
             }
             sb.Append('"');
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// Returns <paramref name="value"/> as a JSON number: round-trippable and with a '.' decimal
+        /// point whatever the player's culture. NaN and infinity have no JSON form and give "null".
+        /// </summary>
+        public static string Number(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value)) return "null";
+            return value.ToString("R", CultureInfo.InvariantCulture);
         }
     }
 }

@@ -272,7 +272,10 @@ namespace Skillprint.SDK.API
             List<Texture2D> screenshots,
             bool isLastChunk, // isLastChunk parameter must be sent when closing the session.
             Action<bool, string> callback,
-            int jpegQuality = 75 // Default to Unity's default quality for backward compatibility
+            int jpegQuality = 75, // Default to Unity's default quality for backward compatibility
+            // JSON object sent as the last screenshot's game state (e.g. {"score": 12});
+            // the backend takes its "score" as the session's score. Null sends none.
+            string lastGameStateJson = null
         )
         {
             // TODO: Avoid sending duplicated screenshots in the same batch or from the previous one. This is to avoid processing gameplay when user is in a menu or still.
@@ -295,7 +298,7 @@ namespace Skillprint.SDK.API
             }
 
             // Encode once; every attempt reuses the same JPEG bytes.
-            var encoded = new List<KeyValuePair<int, byte[]>>();
+            var encoded = new List<byte[]>();
             for (int i = 0; i < screenshots.Count; i++)
             {
                 if (screenshots[i] == null)
@@ -315,7 +318,7 @@ namespace Skillprint.SDK.API
                     );
                     continue;
                 }
-                encoded.Add(new KeyValuePair<int, byte[]>(i, jpgData));
+                encoded.Add(jpgData);
             }
 
             // If there are no actual image files (all null or failed to encode) and it's not
@@ -333,23 +336,7 @@ namespace Skillprint.SDK.API
             Func<UnityWebRequest> build = () =>
             {
                 // UnityWebRequest can't be reused, so the form is rebuilt for every attempt.
-                var formData = new List<IMultipartFormSection>
-                {
-                    // API expects boolean true/false as string.
-                    new MultipartFormDataSection("is_last_chunk", isLastChunk.ToString().ToLower())
-                };
-                foreach (var shot in encoded)
-                {
-                    // Field names "screenshot0", "screenshot1", ...
-                    formData.Add(
-                        new MultipartFormFileSection(
-                            $"screenshot{shot.Key}",
-                            shot.Value,
-                            $"screenshot_{shot.Key}.jpg",
-                            "image/jpeg"
-                        )
-                    );
-                }
+                var formData = BuildScreenshotForm(encoded, isLastChunk, lastGameStateJson);
                 // UnityWebRequest.Post sets the multipart Content-Type and boundary.
                 var request = UnityWebRequest.Post(url, formData);
                 request.timeout = UPLOAD_TIMEOUT_SECONDS;
@@ -421,6 +408,45 @@ namespace Skillprint.SDK.API
                 );
                 callback(false, lastError);
             }
+        }
+
+        /// <summary>
+        /// The multipart form of one screenshot upload: <c>is_last_chunk</c>, the JPEGs as
+        /// <c>screenshot0</c>, <c>screenshot1</c>, ... numbered without gaps, and
+        /// <paramref name="lastGameStateJson"/> (when given and there is a screenshot to carry it)
+        /// as the last one's <c>game_state&lt;n&gt;</c>. The numbering has no gaps because the
+        /// backend lines screenshots up by the order they arrive but reads each game state by the
+        /// number in its name.
+        /// </summary>
+        public static List<IMultipartFormSection> BuildScreenshotForm(
+            IReadOnlyList<byte[]> jpegs,
+            bool isLastChunk,
+            string lastGameStateJson = null
+        )
+        {
+            var formData = new List<IMultipartFormSection>
+            {
+                // API expects boolean true/false as string.
+                new MultipartFormDataSection("is_last_chunk", isLastChunk ? "true" : "false")
+            };
+            for (int n = 0; n < jpegs.Count; n++)
+            {
+                formData.Add(
+                    new MultipartFormFileSection(
+                        $"screenshot{n}",
+                        jpegs[n],
+                        $"screenshot_{n}.jpg",
+                        "image/jpeg"
+                    )
+                );
+            }
+            if (jpegs.Count > 0 && !string.IsNullOrWhiteSpace(lastGameStateJson))
+            {
+                formData.Add(
+                    new MultipartFormDataSection($"game_state{jpegs.Count - 1}", lastGameStateJson.Trim())
+                );
+            }
+            return formData;
         }
 
         /// <summary>

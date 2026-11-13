@@ -33,6 +33,8 @@ namespace Skillprint.SDK
         private ScreenshotUtility _screenshotUtility;
 
         private List<Texture2D> _screenshotQueue = new List<Texture2D>();
+        // The latest score the game reported in this session (ReportScore), or null.
+        private double? _reportedScore;
         private Coroutine _screenshotCaptureCoroutine;
         private Coroutine _screenshotPostCoroutine;
         private Coroutine _pollResultsCoroutine;
@@ -82,6 +84,34 @@ namespace Skillprint.SDK
         public string GetCurrentSessionId()
         {
             return _currentSessionId;
+        }
+
+        /// <summary>The latest score passed to <see cref="ReportScore"/> in this session, or null.</summary>
+        public double? ReportedScore => _reportedScore;
+
+        /// <summary>
+        /// Reports the player's current score in the running session. It only stores the value:
+        /// each screenshot upload, the closing one included, carries the latest score as the
+        /// game state of its last screenshot, and the backend keeps the most recent one as the
+        /// session's score. Call it whenever the score changes (and with 0 when a run starts, so
+        /// a run that scores nothing still has a score). Starting a session clears it.
+        /// </summary>
+        public void ReportScore(double score)
+        {
+            if (double.IsNaN(score) || double.IsInfinity(score))
+            {
+                Log($"Ignoring score {score}: not a finite number.", LogLevel.Warning);
+                return;
+            }
+            _reportedScore = score;
+        }
+
+        /// <summary>The game state sent with an upload's last screenshot: {"score": n}, or null if none was reported.</summary>
+        private string LatestGameStateJson()
+        {
+            return _reportedScore.HasValue
+                ? "{\"score\":" + JsonText.Number(_reportedScore.Value) + "}"
+                : null;
         }
 
         /// <summary>
@@ -445,6 +475,7 @@ namespace Skillprint.SDK
             _isSessionActive = true;
             _isTransmissionPaused = false;
             _latestParameterValues.Clear();
+            _reportedScore = null;
             Log(
                 $"Starting game session for {config.targetEnvironment} environment.",
                 LogLevel.Info
@@ -563,7 +594,8 @@ namespace Skillprint.SDK
                         // Clean up textures after the request completes
                         finalBatch.ForEach(Destroy);
                     },
-                    config.screenshotJpegQuality
+                    config.screenshotJpegQuality,
+                    LatestGameStateJson()
                 )
             );
 
@@ -704,7 +736,8 @@ namespace Skillprint.SDK
                                 // Clean up textures that were attempted to be posted
                                 batchToPost.ForEach(Destroy);
                             },
-                            config.screenshotJpegQuality
+                            config.screenshotJpegQuality,
+                            LatestGameStateJson()
                         )
                     );
                 }

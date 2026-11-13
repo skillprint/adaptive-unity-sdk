@@ -252,6 +252,27 @@ SkillprintManager.Instance.SendTextChunk(digest, "[{\"score\": 7}]", durationMs:
 The optional second argument is a JSON array of game states; a `score` in the last one becomes
 the session score.
 
+### 7. Report the player's score
+
+Tell the SDK the player's score whenever it changes, and once with the starting score after
+`StartGameSession`:
+
+```csharp
+SkillprintManager.Instance.StartGameSession(mood);
+SkillprintManager.Instance.ReportScore(0);
+
+// Wherever the score goes up:
+score += points;
+SkillprintManager.Instance.ReportScore(score);
+```
+
+`ReportScore` only stores the value, so it is cheap enough to call every frame. Each screenshot
+upload, the closing one from `StopGameSession` included, carries the latest score as
+`game_state<n>` = `{"score": n}` on its last screenshot. The backend keeps the most recent one as
+the session's score, which is what results screens and leaderboards show. Starting a new
+session clears it, and NaN or infinity is ignored. `ReportedScore` reads back what was last
+reported.
+
 ## 📊 User Profile Graph (Visualization)
 
 The Skillprint Unity SDK includes a modular circular profile graph component (`SkillprintGraphRenderer`) and a test harness widget (`SkillprintProfileHarness`) to retrieve player profile and progression data and visualize it dynamically in your UI.

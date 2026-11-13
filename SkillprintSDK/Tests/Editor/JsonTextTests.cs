@@ -1,3 +1,4 @@
+using System.Globalization;
 using NUnit.Framework;
 using Skillprint.SDK.API;
 
@@ -29,6 +30,37 @@ namespace Skillprint.SDK.Tests
         public void Quote_Null_IsJsonNull()
         {
             Assert.AreEqual("null", JsonText.Quote(null));
+        }
+
+        [Test]
+        public void Number_WholeAndFractionalValues()
+        {
+            Assert.AreEqual("0", JsonText.Number(0));
+            Assert.AreEqual("1177", JsonText.Number(1177));
+            Assert.AreEqual("-3", JsonText.Number(-3));
+            Assert.AreEqual("12.5", JsonText.Number(12.5));
+        }
+
+        [Test]
+        public void Number_UsesADotWhateverTheCulture()
+        {
+            var previous = CultureInfo.CurrentCulture;
+            try
+            {
+                CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+                Assert.AreEqual("12.5", JsonText.Number(12.5));
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = previous;
+            }
+        }
+
+        [Test]
+        public void Number_NonFiniteIsJsonNull()
+        {
+            Assert.AreEqual("null", JsonText.Number(double.NaN));
+            Assert.AreEqual("null", JsonText.Number(double.PositiveInfinity));
         }
     }
 }
