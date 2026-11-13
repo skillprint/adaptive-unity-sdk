@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using System.Globalization;
 
 namespace Skillprint.SDK
 {
@@ -65,23 +66,32 @@ namespace Skillprint.SDK
             return value;
         }
 
+        /// <summary>
+        /// Converts a value from the API to this parameter's type, or returns null when
+        /// it can't be converted. Null stays null rather than becoming 0 / false.
+        /// </summary>
         public object ConvertValue(object rawValue)
         {
+            if (rawValue == null)
+                return null;
+
             try
             {
+                // Strings from the API use '.' for decimals whatever the player's locale.
                 switch (type)
                 {
                     case ParameterType.Float:
-                        return System.Convert.ToSingle(rawValue);
+                        return System.Convert.ToSingle(rawValue, CultureInfo.InvariantCulture);
                     case ParameterType.Integer:
-                        return System.Convert.ToInt32(rawValue);
+                        return System.Convert.ToInt32(rawValue, CultureInfo.InvariantCulture);
                     case ParameterType.Boolean:
-                        return System.Convert.ToBoolean(rawValue);
+                        return System.Convert.ToBoolean(rawValue, CultureInfo.InvariantCulture);
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SkillprintSDK] Error converting value for parameter {parameterName}: {ex.Message}");
+                // A warning, not an error: the update is skipped and the game carries on.
+                Debug.LogWarning($"[SkillprintSDK] Could not convert value '{rawValue}' for parameter {parameterName}: {ex.Message}");
             }
             return null;
         }
